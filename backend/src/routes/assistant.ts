@@ -4,7 +4,19 @@ import { db } from '../db/index.js';
 import { auditLog } from '../db/schema.js';
 import { requireAdmin, type AuthRequest } from '../middleware/auth.js';
 import { EmbeddingsError, getEmbedding, padEmbeddingForStorage } from '../services/embeddings.js';
-import { askClaude, askClaudePatternSearch, BedrockError, type ContextNote, type ConversationTurn, type PatternSearchCase } from '../services/bedrock.js';
+import {
+  askClaude,
+  askClaudeNamedMemberComparison,
+  askClaudePatternSearch,
+  BedrockError,
+  type ContextNote,
+  type ConversationTurn,
+  type PatternSearchCase,
+} from '../services/bedrock.js';
+import {
+  fetchNamedMemberProfiles,
+  resolveMembersByName,
+} from '../services/namedMemberSearch.js';
 import { convertAmount } from '../services/currency.js';
 import {
   getMemberLoans,
@@ -250,6 +262,32 @@ router.post('/pattern-search', requireAdmin, async (req: AuthRequest, res) => {
 
     const trimmedQuestion = question.trim();
     const trimmedExcludeMemberId = excludeMemberId?.trim();
+
+    const resolvedMembers = await resolveMembersByName(trimmedQuestion);
+    if (resolvedMembers.length > 0) {
+      const profiles = await fetchNamedMemberProfiles(resolvedMembers);
+
+      if (profiles.length === 0) {
+        res.status(404).json({ error: 'Named member(s) not found in the cooperative records' });
+        return;
+      }
+
+      const analysis = await askClaudeNamedMemberComparison(trimmedQuestion, profiles);
+
+      res.json({
+        analysis,
+        casesReferenced: profiles.flatMap((profile) =>
+          profile.notes.length > 0
+            ? profile.notes.map((note) => ({
+                noteId: note.id,
+                memberName: profile.name,
+              }))
+            : [{ noteId: profile.memberId, memberName: profile.name }]
+        ),
+        membersCompared: profiles.map((p) => ({ memberId: p.memberId, memberName: p.name })),
+      });
+      return;
+    }
 
     const questionEmbedding = padEmbeddingForStorage(await getEmbedding(trimmedQuestion, 'query'));
     const vectorLiteral = `'[${questionEmbedding.join(',')}]'`;

@@ -222,6 +222,76 @@ Answer:`;
   return invokeClaude(prompt);
 }
 
+export interface NamedMemberComparisonProfile {
+  memberId: string;
+  name: string;
+  record: MemberRecordDisplay;
+  stats: MemberStatsDisplay;
+  loans: MemberLoanDisplay[];
+  notes: ContextNote[];
+}
+
+function formatNamedMemberBlock(profile: NamedMemberComparisonProfile): string {
+  const { record, stats, loans, notes } = profile;
+  const currency = record.savingsBalanceCurrency;
+
+  const loansText = loans.length
+    ? loans
+        .map((loan) => {
+          const remaining =
+            loan.remainingBalanceDisplay == null
+              ? 'unknown'
+              : `${loan.remainingBalanceDisplay.toFixed(2)} ${loan.displayCurrency}`;
+          const outcome = loan.final_outcome ?? 'active';
+          return `${loan.external_id}: principal ${loan.principalDisplay.toFixed(2)} ${loan.displayCurrency}, status ${loan.status}, remaining ${remaining}, outcome: ${outcome}`;
+        })
+        .join('; ')
+    : 'No loan records on file.';
+
+  const notesText = notes.length
+    ? notes
+        .map(
+          (n) =>
+            `[${n.id}] ${n.text}${n.complianceFlag ? ' — FLAGGED' : ''}`
+        )
+        .join('\n')
+    : 'No notes on record for this member.';
+
+  return `Member: ${profile.name}
+Account: savings balance ${record.savingsBalanceDisplay.toFixed(2)} ${currency}, member since ${record.join_date}, status ${record.status}
+Stats: ${stats.depositCount} deposits, ${stats.totalSavedDisplay.toFixed(2)} ${currency} saved historically, ${stats.loanCount} loans (${stats.loansRepaid} repaid, ${stats.activeLoans} active)
+Loans: ${loansText}
+Notes:
+${notesText}`;
+}
+
+export async function askClaudeNamedMemberComparison(
+  question: string,
+  profiles: NamedMemberComparisonProfile[]
+): Promise<string> {
+  const comparisonBlock = profiles.map(formatNamedMemberBlock).join('\n---\n');
+
+  const prompt = `You are a loan officer's memory assistant for a microfinance cooperative. The officer asked a question that names specific member(s). Compare them using ONLY the full account, loan, and note data provided below.
+
+Rules:
+1. If specific members are named in the question, always compare using their full account, loan, and note data provided above. Do not say a member doesn't exist just because they lack notes — only say a member is not found if their member record itself is genuinely absent from the data below.
+2. When a member has no notes, say clearly that no qualitative notes exist for them, but still use their account, stats, and loan records in the comparison.
+3. Answer the specific question directly first, then provide supporting detail.
+4. Reference members by name. When citing a note, include its note ID in brackets.
+5. Never invent outcomes, balances, or behavioral details not present below.
+6. If a note is flagged, mention the risk clearly.
+7. If loan outcome fields show a resolved outcome (e.g. repaid_on_time, defaulted), treat that as confirmed fact.
+
+Member profiles (authoritative records):
+${comparisonBlock}
+
+Question: ${question}
+
+Analysis:`;
+
+  return invokeClaude(prompt, 700);
+}
+
 export async function askClaudePatternSearch(
   question: string,
   cases: PatternSearchCase[]
