@@ -18,8 +18,21 @@ export function padEmbeddingForStorage(embedding: number[]): number[] {
   return [...embedding, ...Array(STORAGE_EMBEDDING_DIM - embedding.length).fill(0)];
 }
 
-interface CohereEmbedResponse {
-  embeddings?: number[][];
+interface CohereEmbedV2Response {
+  embeddings?: {
+    float?: number[][];
+  };
+}
+
+function parseCohereErrorBody(body: unknown): string {
+  if (!body || typeof body !== 'object') return '';
+  const record = body as Record<string, unknown>;
+  if (typeof record.message === 'string') return record.message;
+  if (record.error && typeof record.error === 'object') {
+    const nested = record.error as Record<string, unknown>;
+    if (typeof nested.message === 'string') return nested.message;
+  }
+  return '';
 }
 
 export async function getEmbedding(
@@ -33,7 +46,7 @@ export async function getEmbedding(
 
   const inputType = mode === 'query' ? 'search_query' : 'search_document';
 
-  const response = await fetch('https://api.cohere.com/v1/embed', {
+  const response = await fetch('https://api.cohere.com/v2/embed', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -43,23 +56,35 @@ export async function getEmbedding(
       texts: [text],
       model: 'embed-english-v3.0',
       input_type: inputType,
+      embedding_types: ['float'],
     }),
   });
 
+  const rawBody = await response.text();
   if (!response.ok) {
     let detail = '';
     try {
-      const errBody = (await response.json()) as { message?: string };
-      detail = errBody.message ?? '';
+      detail = parseCohereErrorBody(JSON.parse(rawBody));
     } catch {
-      // ignore non-JSON error bodies
+      detail = rawBody.slice(0, 200);
     }
     const suffix = detail ? `: ${detail}` : '';
+    if (response.status === 401 || response.status === 403) {
+      throw new EmbeddingsError(
+        `Cohere embedding request failed: ${response.status} (invalid or expired API key — create a new key at dashboard.cohere.com/api-keys)${suffix}`
+      );
+    }
     throw new EmbeddingsError(`Cohere embedding request failed: ${response.status}${suffix}`);
   }
 
-  const data = (await response.json()) as CohereEmbedResponse;
-  const embedding = data.embeddings?.[0];
+  let data: CohereEmbedV2Response;
+  try {
+    data = JSON.parse(rawBody) as CohereEmbedV2Response;
+  } catch {
+    throw new EmbeddingsError('Cohere returned invalid JSON');
+  }
+
+  const embedding = data.embeddings?.float?.[0];
   if (!embedding?.length) {
     throw new EmbeddingsError('Cohere returned no embedding');
   }
