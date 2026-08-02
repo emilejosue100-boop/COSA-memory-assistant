@@ -161,7 +161,7 @@ export const notes = pgTable('notes', {
     .default(sql`'{}'::text[]`),
   complianceFlag: boolean('compliance_flag').notNull().default(false),
   complianceSummary: text('compliance_summary'),
-  embedding: vector('embedding', { dimensions: 1024 }),
+  embedding: vector('embedding', { dimensions: 768 }),
 });
 
 export const exchangeRates = pgTable('exchange_rates', {

@@ -118,8 +118,9 @@ const statements = [
     tags STRING[] NOT NULL DEFAULT '{}',
     compliance_flag BOOL NOT NULL DEFAULT false,
     compliance_summary STRING,
-    embedding VECTOR(1024)
+    embedding VECTOR(768)
   )`,
+  `CREATE INDEX IF NOT EXISTS notes_embedding_idx ON notes USING cspann (embedding vector_l2_ops)`,
   `CREATE TABLE IF NOT EXISTS exchange_rates (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     base_currency STRING NOT NULL DEFAULT 'USD',

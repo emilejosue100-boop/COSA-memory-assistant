@@ -18,6 +18,7 @@
     "db:setup": "tsx scripts/apply-schema.ts",
     "db:timeline": "tsx scripts/apply-timeline-view.ts",
     "seed:outcomes": "tsx scripts/seed-outcomes.ts",
+    "reembed-notes": "tsx scripts/reembed-notes.ts",
     "lint": "tsc --noEmit"
   },
   "dependencies": {

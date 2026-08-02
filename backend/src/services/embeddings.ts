@@ -5,8 +5,8 @@ export class EmbeddingsError extends Error {
   }
 }
 
-/** Live DB notes.embedding is VECTOR(1536) (legacy Voyage padding); Cohere outputs 1024 — pad to match. */
-export const STORAGE_EMBEDDING_DIM = 1536;
+/** CockroachDB notes.embedding column is VECTOR(768); Gemini gemini-embedding-001 outputs 768. */
+export const STORAGE_EMBEDDING_DIM = 768;
 
 export function padEmbeddingForStorage(embedding: number[]): number[] {
   if (embedding.length === STORAGE_EMBEDDING_DIM) {
@@ -18,75 +18,58 @@ export function padEmbeddingForStorage(embedding: number[]): number[] {
   return [...embedding, ...Array(STORAGE_EMBEDDING_DIM - embedding.length).fill(0)];
 }
 
-interface CohereEmbedV2Response {
-  embeddings?: {
-    float?: number[][];
-  };
-}
-
-function parseCohereErrorBody(body: unknown): string {
-  if (!body || typeof body !== 'object') return '';
-  const record = body as Record<string, unknown>;
-  if (typeof record.message === 'string') return record.message;
-  if (record.error && typeof record.error === 'object') {
-    const nested = record.error as Record<string, unknown>;
-    if (typeof nested.message === 'string') return nested.message;
-  }
-  return '';
+interface GeminiEmbedResponse {
+  embedding?: { values?: number[] };
+  error?: { message?: string; status?: string };
 }
 
 export async function getEmbedding(
   text: string,
   mode: 'document' | 'query' = 'document'
 ): Promise<number[]> {
-  const apiKey = process.env.COHERE_API_KEY?.trim();
+  const apiKey = process.env.GEMINI_API_KEY?.trim();
   if (!apiKey) {
-    throw new EmbeddingsError('COHERE_API_KEY is not configured');
+    throw new EmbeddingsError('GEMINI_API_KEY is not configured');
   }
 
-  const inputType = mode === 'query' ? 'search_query' : 'search_document';
+  const taskType = mode === 'query' ? 'RETRIEVAL_QUERY' : 'RETRIEVAL_DOCUMENT';
 
-  const response = await fetch('https://api.cohere.com/v2/embed', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      texts: [text],
-      model: 'embed-english-v3.0',
-      input_type: inputType,
-      embedding_types: ['float'],
-    }),
-  });
+  const response = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent?key=${apiKey}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        content: { parts: [{ text }] },
+        taskType,
+        outputDimensionality: 768,
+      }),
+    }
+  );
 
   const rawBody = await response.text();
   if (!response.ok) {
     let detail = '';
     try {
-      detail = parseCohereErrorBody(JSON.parse(rawBody));
+      const errBody = JSON.parse(rawBody) as GeminiEmbedResponse;
+      detail = errBody.error?.message ?? '';
     } catch {
       detail = rawBody.slice(0, 200);
     }
     const suffix = detail ? `: ${detail}` : '';
-    if (response.status === 401 || response.status === 403) {
-      throw new EmbeddingsError(
-        `Cohere embedding request failed: ${response.status} (invalid or expired API key — create a new key at dashboard.cohere.com/api-keys)${suffix}`
-      );
-    }
-    throw new EmbeddingsError(`Cohere embedding request failed: ${response.status}${suffix}`);
+    throw new EmbeddingsError(`Gemini embedding request failed: ${response.status}${suffix}`);
   }
 
-  let data: CohereEmbedV2Response;
+  let data: GeminiEmbedResponse;
   try {
-    data = JSON.parse(rawBody) as CohereEmbedV2Response;
+    data = JSON.parse(rawBody) as GeminiEmbedResponse;
   } catch {
-    throw new EmbeddingsError('Cohere returned invalid JSON');
+    throw new EmbeddingsError('Gemini returned invalid JSON');
   }
 
-  const embedding = data.embeddings?.float?.[0];
+  const embedding = data.embedding?.values;
   if (!embedding?.length) {
-    throw new EmbeddingsError('Cohere returned no embedding');
+    throw new EmbeddingsError('Gemini returned no embedding');
   }
 
   return embedding;

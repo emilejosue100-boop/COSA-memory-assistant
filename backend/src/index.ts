@@ -16,7 +16,7 @@ import settingsRoutes from './routes/settings.js';
 import timelineRoutes from './routes/timeline.js';
 import loansRoutes from './routes/loans.js';
 import { ensureMemberTimelineView } from './services/timeline.js';
-import { ensureLoanOutcomeColumns, ensureRiskScanLogTable } from './services/schemaPatches.js';
+import { ensureLoanOutcomeColumns, ensureNotesEmbedding768, ensureRiskScanLogTable } from './services/schemaPatches.js';
 import riskScanRoutes from './routes/riskScan.js';
 import transcribeRoutes from './routes/transcribe.js';
 
@@ -54,12 +54,12 @@ app.use(
 app.use(express.json({ limit: '10mb' }));
 
 app.get('/health', (_req, res) => {
-  const cohereKey = process.env.COHERE_API_KEY?.trim();
+  const geminiKey = process.env.GEMINI_API_KEY?.trim();
   res.json({
     status: 'ok',
     service: 'kumbuka-backend',
-    cohere: cohereKey
-      ? { configured: true, keyPrefix: `${cohereKey.slice(0, 7)}...`, keyLength: cohereKey.length }
+    gemini: geminiKey
+      ? { configured: true, keyPrefix: `${geminiKey.slice(0, 7)}...`, keyLength: geminiKey.length }
       : { configured: false },
   });
 });
@@ -73,26 +73,27 @@ app.use('/api', loansRoutes);
 app.use('/api', riskScanRoutes);
 app.use('/api', transcribeRoutes);
 
-function logCohereKeyStatus(): void {
-  const key = process.env.COHERE_API_KEY?.trim();
+function logGeminiKeyStatus(): void {
+  const key = process.env.GEMINI_API_KEY?.trim();
   if (!key) {
-    console.warn('[startup] COHERE_API_KEY is not set — Memory Assistant embeddings will fail');
+    console.warn('[startup] GEMINI_API_KEY is not set — Memory Assistant embeddings will fail');
     return;
   }
   console.log(
-    `[startup] COHERE_API_KEY configured (${key.length} chars, starts with ${key.slice(0, 4)}...)`
+    `[startup] GEMINI_API_KEY configured (${key.length} chars, starts with ${key.slice(0, 4)}...)`
   );
 }
 
 async function start() {
   await connectDB();
   await ensureLoanOutcomeColumns();
+  await ensureNotesEmbedding768();
   await ensureRiskScanLogTable();
   await ensureMemberTimelineView();
   await ensureDefaultCooperative();
   await ensureDefaultExchangeRate();
   await ensureDemoAccounts();
-  logCohereKeyStatus();
+  logGeminiKeyStatus();
   app.listen(PORT, () => {
     console.log(`Kumbuka backend running on http://localhost:${PORT}`);
   });

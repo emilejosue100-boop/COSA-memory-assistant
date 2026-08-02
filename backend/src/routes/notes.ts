@@ -122,8 +122,8 @@ router.post('/add-note', requireAdmin, async (req: AuthRequest, res) => {
     });
   } catch (err) {
     if (err instanceof EmbeddingsError) {
-      console.error('add-note Cohere error:', err);
-      res.status(503).json({ error: `Cohere embeddings unavailable: ${err.message}` });
+      console.error('add-note Gemini error:', err);
+      res.status(503).json({ error: `Gemini embeddings unavailable: ${err.message}` });
       return;
     }
     console.error('add-note error:', err);
@@ -181,8 +181,8 @@ router.post('/payment-update', requireMember, async (req: AuthRequest, res) => {
     });
   } catch (err) {
     if (err instanceof EmbeddingsError) {
-      console.error('payment-update Cohere error:', err);
-      res.status(503).json({ error: `Cohere embeddings unavailable: ${err.message}` });
+      console.error('payment-update Gemini error:', err);
+      res.status(503).json({ error: `Gemini embeddings unavailable: ${err.message}` });
       return;
     }
     console.error('payment-update error:', err);

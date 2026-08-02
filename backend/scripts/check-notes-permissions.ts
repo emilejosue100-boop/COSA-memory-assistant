@@ -59,9 +59,9 @@ try {
   const embeddingType = typeResult.rows[0]?.type as string | undefined;
   console.log('notes.embedding type:', embeddingType ?? 'unknown');
 
-  if (embeddingType && !String(embeddingType).includes('1024') && embeddingType !== 'vector') {
+  if (embeddingType && !String(embeddingType).includes('768') && embeddingType !== 'vector') {
     console.warn(
-      `\nWarning: notes.embedding is ${embeddingType}. Cohere embed-english-v3.0 outputs 1024 dims; storage pads to 1536 for legacy column compatibility.`
+      `\nWarning: notes.embedding is ${embeddingType}. Gemini gemini-embedding-001 outputs 768 dims.`
     );
   }
 } catch (err) {

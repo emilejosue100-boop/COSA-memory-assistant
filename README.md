@@ -91,7 +91,7 @@ Loan officers at cooperatives manage many members and lose track of behavioral h
          │                                               │  (open-ended Q&A, Risk Watch)
          ▼                                               ▼
   ┌─────────────┐                                 ┌───────────────┐
-  │  Cohere     │                                 │ Amazon Bedrock│
+  │  Gemini     │                                 │ Amazon Bedrock│
   │  (embed Q)  │                                 │ Claude        │
   └──────┬──────┘                                 └───────┬───────┘
          │                                                 │
@@ -118,7 +118,7 @@ Loan officers at cooperatives manage many members and lose track of behavioral h
 
 **Path (a) — Standard Q&A & pattern search (Memory Assistant):**
 
-1. Officer question → Express API → **Cohere** embeds the question.
+1. Officer question → Express API → **Gemini** embeds the question.
 2. **CockroachDB** vector search on `notes.embedding` (`embedding <-> query`) retrieves relevant notes.
 3. Retrieved notes + member context + loans + timeline → **Amazon Bedrock / Claude** → grounded answer + citations.
 4. Q&A persisted to `audit_log`.
@@ -138,7 +138,7 @@ Loan officers at cooperatives manage many members and lose track of behavioral h
 
 ### Distributed vector indexing
 
-Officer and member notes are embedded with **Cohere `embed-english-v3.0`** (1024 dimensions) and stored in CockroachDB’s native **`VECTOR(1024)`** column on `notes.embedding`.
+Officer and member notes are embedded with **Gemini `gemini-embedding-001`** (768 dimensions via `outputDimensionality`) and stored in CockroachDB’s native **`VECTOR(768)`** column on `notes.embedding`.
 
 Semantic retrieval uses CockroachDB’s distance operator:
 
@@ -176,8 +176,8 @@ During development we evaluated additional AWS services that were **blocked by a
 
 | Evaluated | Blocker | Substitute used |
 |-----------|---------|-----------------|
-| **Amazon Titan Embeddings** | Service activation / billing delay | **Cohere** (`embed-english-v3.0`) for note embeddings |
-| **Voyage AI** (`voyage-2`) | 403 IP blocked from cloud hosts (Render production) | **Cohere Embed API** for note + question embeddings |
+| **Amazon Titan Embeddings** | Service activation / billing delay | **Google Gemini** (`gemini-embedding-001`, 768-dim) for note embeddings |
+| **Voyage AI** (`voyage-2`) | 403 IP blocked from cloud hosts (Render) | **Cohere** → then **Gemini** (Cohere also 403 in production) |
 | **Amazon Transcribe** | `SubscriptionRequiredException` on new account | **Groq Whisper API** (`whisper-large-v3`) for voice question input |
 
 Bedrock + Claude is the core AWS integration and is live in production paths.
@@ -191,7 +191,7 @@ Bedrock + Claude is the core AWS integration and is live in production paths.
 | Frontend | React 19, Vite, Tailwind CSS v4 |
 | Backend | Express, Node 20 |
 | Database | CockroachDB, Drizzle ORM |
-| Embeddings | Cohere (`embed-english-v3.0`) |
+| Embeddings | Google Gemini (`gemini-embedding-001`, 768-dim) |
 | LLM | Claude via Amazon Bedrock |
 | Voice transcription | Groq Whisper API |
 | Auth | JWT (bcrypt PIN hashes) |
@@ -205,7 +205,7 @@ Bedrock + Claude is the core AWS integration and is live in production paths.
 
 - Node.js 20+
 - CockroachDB cluster ([CockroachDB Cloud](https://cockroachlabs.cloud/) free tier works)
-- API keys: Cohere, Groq, AWS (Bedrock), Gemini (optional — legacy Terura tips/opportunities)
+- API keys: Gemini, Groq, AWS (Bedrock)
 
 ### 1. Install dependencies
 
@@ -224,7 +224,7 @@ Edit `backend/.env`:
 | Variable | Example / placeholder | Purpose |
 |----------|----------------------|---------|
 | `COCKROACH_DB_URL` | `postgresql://user:pass@host:26257/defaultdb?sslmode=verify-full` | CockroachDB connection string |
-| `COHERE_API_KEY` | `...` | Note + question embeddings ([dashboard.cohere.com](https://dashboard.cohere.com)) |
+| `GEMINI_API_KEY` | `AIza...` | Note + question embeddings and legacy Terura tips/opportunities ([aistudio.google.com/apikey](https://aistudio.google.com/apikey)) |
 | `AWS_ACCESS_KEY_ID` | `AKIA...` | Bedrock authentication |
 | `AWS_SECRET_ACCESS_KEY` | `...` | Bedrock authentication |
 | `AWS_REGION` | `us-east-1` | Bedrock region (must match enabled models) |
@@ -234,7 +234,6 @@ Edit `backend/.env`:
 | `JWT_SECRET` | long random string | Signs session tokens |
 | `FRONTEND_URL` | `http://localhost:5173` | CORS allowed origin (no trailing slash) |
 | `ADMIN_PHONE` | `0788123456` | Phone allowed for first committee bootstrap |
-| `GEMINI_API_KEY` | `AIza...` | Optional — financial tips & opportunity feed (Terura legacy) |
 | `FIRECRAWL_API_KEY` | `fc-...` | Optional — live Rwanda finance scraping |
 
 ### 3. Initialize database
@@ -243,7 +242,13 @@ Edit `backend/.env`:
 cd backend && npm run db:setup
 ```
 
-Creates tables, vector column, `member_timeline` view, and supporting schema patches on startup.
+Creates tables, vector column, `member_timeline` view, and supporting schema patches on startup. Migrates `notes.embedding` to **VECTOR(768)** when upgrading from older dimensions.
+
+After upgrading embeddings, re-embed existing notes once:
+
+```bash
+cd backend && npm run reembed-notes
+```
 
 ### 4. Seed demo accounts
 
@@ -286,7 +291,7 @@ For Vercel deploys, set `BACKEND_URL` to your Render API URL (e.g. `https://kumb
 | `members` | Cooperative members and committee admins (phone + PIN auth) |
 | `loan_requests` | Loan applications, approval status, repayment tracking, `final_outcome` |
 | `transactions` | Savings deposits, withdrawals, loan repayments |
-| `notes` | Officer notes and member payment updates; **`embedding VECTOR`** for semantic search |
+| `notes` | Officer notes and member payment updates; **`embedding VECTOR(768)`** for semantic search |
 | `audit_log` | Immutable log of every Memory Assistant Q&A (question, answer, notes cited) |
 | `risk_scan_log` | Cooperative Risk Watch scan results + officer review status |
 | `exchange_rates` | Admin-managed USD/CDF conversion rates |
@@ -306,7 +311,7 @@ kumbuka/
 │   │   ├── routes/    REST API (assistant, notes, loans, risk-scan, …)
 │   │   ├── services/  bedrock, embeddings, mcpReadOnlyTools, timeline, …
 │   │   └── seed/      Demo cooperative + accounts
-│   └── scripts/       Schema apply, seed-outcomes
+│   └── scripts/       Schema apply, reembed-notes, seed-outcomes
 ├── render.yaml        Render Blueprint (kumbuka-api)
 └── README.md
 ```
@@ -318,7 +323,7 @@ kumbuka/
 - **Memory consolidation at scale** — no automatic summarization of old notes into durable member profiles yet; retrieval is per-query vector search.
 - **Risk scanning is on-demand** — Cooperative Risk Watch runs when an officer clicks “Run new scan”; scheduled daily cron/Lambda is a natural next step.
 - **RWF removed** — only USD (internal storage) + CDF (display) via admin-managed exchange rate, to keep conversion logic simple.
-- **AWS service gaps** — Titan Embeddings and Transcribe were planned but replaced by Cohere and Groq due to account activation delays and production IP restrictions on Voyage AI.
+- **AWS service gaps** — Titan Embeddings and Transcribe were planned but replaced by Gemini and Groq; Voyage and Cohere were tried first but blocked or failed from Render production IPs.
 - **Session memory is ephemeral** — conversation history resets on page refresh (by design for demo privacy).
 
 ---

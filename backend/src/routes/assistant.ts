@@ -222,8 +222,8 @@ router.post('/ask-assistant', requireAdmin, async (req: AuthRequest, res) => {
     });
   } catch (err) {
     if (err instanceof EmbeddingsError) {
-      console.error('ask-assistant Cohere error:', err);
-      res.status(503).json({ error: `Cohere embeddings unavailable: ${err.message}` });
+      console.error('ask-assistant Gemini error:', err);
+      res.status(503).json({ error: `Gemini embeddings unavailable: ${err.message}` });
       return;
     }
     if (err instanceof BedrockError) {
@@ -311,8 +311,8 @@ router.post('/pattern-search', requireAdmin, async (req: AuthRequest, res) => {
     });
   } catch (err) {
     if (err instanceof EmbeddingsError) {
-      console.error('pattern-search Cohere error:', err);
-      res.status(503).json({ error: `Cohere embeddings unavailable: ${err.message}` });
+      console.error('pattern-search Gemini error:', err);
+      res.status(503).json({ error: `Gemini embeddings unavailable: ${err.message}` });
       return;
     }
     if (err instanceof BedrockError) {
