@@ -142,3 +142,104 @@ export async function fetchNamedMemberProfiles(
   );
   return profiles.filter((p): p is NamedMemberProfile => p !== null);
 }
+
+const COOPERATIVE_COMPARISON_PATTERNS = [
+  /\ball other members\b/i,
+  /\brest of the cooperative\b/i,
+  /\bcompared to everyone\b/i,
+  /\bcompare overall\b/i,
+  /\bhow does (?:he|she|they) compare overall\b/i,
+  /\bcompared to the cooperative\b/i,
+  /\bversus everyone\b/i,
+  /\bagainst the (?:rest of the )?group\b/i,
+  /\brest of the members\b/i,
+  /\bother members(?:\s+of\s+the\s+cooperative)?\b/i,
+  /\bwhole cooperative\b/i,
+  /\bentire cooperative\b/i,
+  /\bcooperative-?wide\b/i,
+  /\bcompared to all\b/i,
+  /\bcompare to all\b/i,
+  /\bhow does .+ compare to all\b/i,
+];
+
+export function questionRequestsCooperativeComparison(question: string): boolean {
+  return COOPERATIVE_COMPARISON_PATTERNS.some((pattern) => pattern.test(question));
+}
+
+export interface CooperativeLoanOutcomes {
+  totalLoans: number;
+  repaidOnTime: number;
+  repaidLate: number;
+  defaulted: number;
+  active: number;
+}
+
+export interface CooperativeAggregateStats {
+  avgSavings: number;
+  totalMembers: number;
+  loanOutcomes: CooperativeLoanOutcomes;
+  flaggedMembers: number;
+}
+
+function aggregateToNumber(value: number | string | null | undefined): number {
+  if (value == null) return 0;
+  const n = typeof value === 'number' ? value : Number(value);
+  return Number.isFinite(n) ? n : 0;
+}
+
+export async function getCooperativeAggregateStats(
+  excludeMemberId: string
+): Promise<CooperativeAggregateStats> {
+  const [memberResult, loanStatsResult, flaggedResult] = await Promise.all([
+    db.execute(sql`
+      SELECT
+        AVG(savings_balance) AS avg_savings,
+        COUNT(*)::int AS total_members
+      FROM members
+      WHERE role = 'member'
+        AND id != ${excludeMemberId}
+    `),
+    db.execute(sql`
+      SELECT
+        COUNT(*)::int AS total_loans,
+        SUM(CASE WHEN final_outcome = 'repaid_on_time' THEN 1 ELSE 0 END)::int AS repaid_on_time,
+        SUM(CASE WHEN final_outcome = 'repaid_late' THEN 1 ELSE 0 END)::int AS repaid_late,
+        SUM(CASE WHEN final_outcome = 'defaulted' THEN 1 ELSE 0 END)::int AS defaulted,
+        SUM(CASE WHEN final_outcome IS NULL THEN 1 ELSE 0 END)::int AS active
+      FROM loan_requests
+      WHERE member_id != ${excludeMemberId}
+    `),
+    db.execute(sql`
+      SELECT COUNT(DISTINCT member_id)::int AS flagged_members
+      FROM notes
+      WHERE compliance_flag = true
+        AND member_id != ${excludeMemberId}
+    `),
+  ]);
+
+  const memberRow = memberResult.rows[0] as {
+    avg_savings: number | string | null;
+    total_members: number | string;
+  };
+  const loanRow = loanStatsResult.rows[0] as {
+    total_loans: number | string;
+    repaid_on_time: number | string;
+    repaid_late: number | string;
+    defaulted: number | string;
+    active: number | string;
+  };
+  const flaggedRow = flaggedResult.rows[0] as { flagged_members: number | string };
+
+  return {
+    avgSavings: aggregateToNumber(memberRow?.avg_savings),
+    totalMembers: aggregateToNumber(memberRow?.total_members),
+    loanOutcomes: {
+      totalLoans: aggregateToNumber(loanRow?.total_loans),
+      repaidOnTime: aggregateToNumber(loanRow?.repaid_on_time),
+      repaidLate: aggregateToNumber(loanRow?.repaid_late),
+      defaulted: aggregateToNumber(loanRow?.defaulted),
+      active: aggregateToNumber(loanRow?.active),
+    },
+    flaggedMembers: aggregateToNumber(flaggedRow?.flagged_members),
+  };
+}

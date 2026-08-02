@@ -7,6 +7,7 @@ import { EmbeddingsError, getEmbedding, padEmbeddingForStorage } from '../servic
 import {
   askClaude,
   askClaudeNamedMemberComparison,
+  askClaudeNamedVsCooperativeComparison,
   askClaudePatternSearch,
   BedrockError,
   type ContextNote,
@@ -15,6 +16,8 @@ import {
 } from '../services/bedrock.js';
 import {
   fetchNamedMemberProfiles,
+  getCooperativeAggregateStats,
+  questionRequestsCooperativeComparison,
   resolveMembersByName,
 } from '../services/namedMemberSearch.js';
 import { convertAmount } from '../services/currency.js';
@@ -269,6 +272,33 @@ router.post('/pattern-search', requireAdmin, async (req: AuthRequest, res) => {
 
       if (profiles.length === 0) {
         res.status(404).json({ error: 'Named member(s) not found in the cooperative records' });
+        return;
+      }
+
+      if (
+        resolvedMembers.length === 1 &&
+        questionRequestsCooperativeComparison(trimmedQuestion)
+      ) {
+        const profile = profiles[0];
+        const aggregate = await getCooperativeAggregateStats(profile.memberId);
+        const analysis = await askClaudeNamedVsCooperativeComparison(
+          trimmedQuestion,
+          profile,
+          aggregate
+        );
+
+        res.json({
+          analysis,
+          comparisonMode: 'named_vs_cooperative',
+          casesReferenced: profile.notes.length
+            ? profile.notes.map((note) => ({
+                noteId: note.id,
+                memberName: profile.name,
+              }))
+            : [{ noteId: profile.memberId, memberName: profile.name }],
+          membersCompared: [{ memberId: profile.memberId, memberName: profile.name }],
+          cooperativeAggregate: aggregate,
+        });
         return;
       }
 

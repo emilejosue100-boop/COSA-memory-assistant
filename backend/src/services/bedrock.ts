@@ -2,6 +2,7 @@ import {
   BedrockRuntimeClient,
   InvokeModelCommand,
 } from '@aws-sdk/client-bedrock-runtime';
+import type { CooperativeAggregateStats } from './namedMemberSearch.js';
 import type {
   MemberLoanDisplay,
   MemberRecordDisplay,
@@ -284,6 +285,42 @@ Rules:
 
 Member profiles (authoritative records):
 ${comparisonBlock}
+
+Question: ${question}
+
+Analysis:`;
+
+  return invokeClaude(prompt, 700);
+}
+
+export async function askClaudeNamedVsCooperativeComparison(
+  question: string,
+  profile: NamedMemberComparisonProfile,
+  aggregate: CooperativeAggregateStats
+): Promise<string> {
+  const memberBlock = formatNamedMemberBlock(profile);
+  const { loanOutcomes } = aggregate;
+  const aggregateBlock = `Cooperative-wide aggregate (excluding ${profile.name}), across ${aggregate.totalMembers} other members:
+- Average savings balance: ${aggregate.avgSavings.toFixed(2)} USD
+- Loan outcomes (all other members): ${loanOutcomes.repaidOnTime} repaid on time, ${loanOutcomes.repaidLate} repaid late, ${loanOutcomes.defaulted} defaulted, ${loanOutcomes.active} still active (${loanOutcomes.totalLoans} loans total)
+- ${aggregate.flaggedMembers} other member(s) have at least one compliance-flagged note`;
+
+  const prompt = `You are a loan officer's memory assistant for a microfinance cooperative. The officer asked how one specific member compares to the rest of the cooperative. Use ONLY the named member profile and cooperative-wide aggregate statistics below.
+
+Rules:
+1. Compare the named member's specific profile against the cooperative-wide aggregate numbers. Give an honest read of where they stand relative to the group (e.g. above/below average savings, repayment track record vs cooperative norms).
+2. Always cite the actual numbers from both sections — never invent rankings, percentiles, or statistics not provided below.
+3. When the named member has no notes, say clearly that no qualitative notes exist, but still compare using account, stats, and loan records.
+4. Do not list every other member individually — the aggregate is the comparison baseline.
+5. Do not say other member profiles were not provided; the aggregate statistics ARE the cooperative comparison data.
+6. Answer the question directly first, then supporting detail.
+7. If a note is flagged, mention the risk clearly.
+8. If loan outcome fields show a resolved outcome (e.g. repaid_on_time, defaulted), treat that as confirmed fact.
+
+Named member profile:
+${memberBlock}
+
+${aggregateBlock}
 
 Question: ${question}
 
