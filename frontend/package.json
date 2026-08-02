@@ -8,6 +8,7 @@
     "dev": "vite",
     "prebuild": "node scripts/generate-vercel-config.mjs",
     "build": "vite build",
+    "postbuild": "node scripts/finalize-vercel-output.mjs",
     "preview": "vite preview",
     "lint": "tsc --noEmit"
   },

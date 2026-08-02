@@ -3,6 +3,7 @@ build/
 dist/
 frontend/dist/
 backend/dist/
+.vercel/
 coverage/
 .DS_Store
 *.log
