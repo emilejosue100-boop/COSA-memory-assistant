@@ -49,6 +49,16 @@ export async function getEmbedding(text: string): Promise<number[]> {
       // ignore non-JSON error bodies
     }
     const suffix = detail ? `: ${detail}` : '';
+    if (response.status === 401) {
+      throw new EmbeddingsError(
+        `Voyage AI request failed: 401 (invalid API key — check VOYAGE_API_KEY)${suffix}`
+      );
+    }
+    if (response.status === 403) {
+      throw new EmbeddingsError(
+        `Voyage AI request failed: 403 (IP blocked — Voyage often rejects cloud host IPs like Render; works locally but fails in production)${suffix}`
+      );
+    }
     throw new EmbeddingsError(`Voyage AI request failed: ${response.status}${suffix}`);
   }
 
