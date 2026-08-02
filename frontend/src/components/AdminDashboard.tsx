@@ -1,8 +1,12 @@
 import React, { useState } from 'react';
 import { GlobalState, Language } from '../types';
 import { apiPost } from '../lib/api';
+import { formatCurrency } from '../lib/currency';
+import { useCurrency } from '../hooks/useCurrency';
+import CurrencySwitcher from './CurrencySwitcher';
 import { buildSavingsTrend, chartPath } from '../lib/chartData';
 import EmptyState from './EmptyState';
+import CooperativeRiskWatch from './CooperativeRiskWatch';
 import { PiggyBank, Landmark, Users, Clock, Plus, FileSpreadsheet, ChevronRight, Check, TrendingUp } from 'lucide-react';
 
 interface AdminDashboardProps {
@@ -14,6 +18,7 @@ interface AdminDashboardProps {
 
 export default function AdminDashboard({ state, language, onStateChange, onNavigateToTab }: AdminDashboardProps) {
   const { groupSavings, activeLoansCount, activeLoansAmount, users, loanRequests, transactions } = state;
+  const { currency, setCurrency, options, cdfRate } = useCurrency();
   const [showAddMemberModal, setShowAddMemberModal] = useState(false);
   const [newMemberName, setNewMemberName] = useState('');
   const [newMemberPhone, setNewMemberPhone] = useState('');
@@ -53,8 +58,8 @@ export default function AdminDashboard({ state, language, onStateChange, onNavig
               ? 'Committee member registered!'
               : 'New member registered!'
             : newMemberRole === 'admin'
-              ? 'Umunyamuryango wa komite winjiye!'
-              : 'Umuryango mushya winjiye!'
+              ? 'Membre du comité inscrit !'
+              : 'Nouveau membre inscrit !'
         );
         setNewMemberName('');
         setNewMemberPhone('');
@@ -74,10 +79,7 @@ export default function AdminDashboard({ state, language, onStateChange, onNavig
     }
   };
 
-  const formatRwf = (val: number) => {
-    return new Intl.NumberFormat('en-US').format(val) + ' RWF';
-  };
-
+  const formatAmount = (val: number) => formatCurrency(val, currency, cdfRate);
   const groupTrend = buildSavingsTrend(transactions.filter((tx) => tx.type === 'saved'));
   const trendPath = chartPath(groupTrend);
   const trendAreaPath = trendPath ? `${trendPath} L 600 160 L 0 160 Z` : '';
@@ -86,10 +88,10 @@ export default function AdminDashboard({ state, language, onStateChange, onNavig
     <div className="space-y-6 animate-fade-in">
       <div>
         <h2 className="text-xl font-bold font-display text-oil-black tracking-tight">
-          {language === 'en' ? 'Admin Dashboard' : 'Dashibodi ya Komite'}
+          {language === 'en' ? 'Admin Dashboard' : 'Tableau de bord admin'}
         </h2>
         <p className="text-xs text-text-secondary">
-          {language === 'en' ? 'Oversee cooperative growth and process pending approvals' : 'Cunga neza ikigega cy’ikimina n’ubusabe bwose bw’abanyamuryango'}
+          {language === 'en' ? 'Oversee cooperative growth and process pending approvals' : 'Supervisez la croissance coopérative et traitez les approbations en attente'}
         </p>
       </div>
 
@@ -99,17 +101,17 @@ export default function AdminDashboard({ state, language, onStateChange, onNavig
         <div className="bg-white border border-border-subtle rounded-xl p-5 shadow-subtle flex flex-col justify-between">
           <div className="flex justify-between items-start">
             <span className="text-xs font-bold text-text-secondary uppercase tracking-wider">
-              {language === 'en' ? 'Total Group Fund' : 'Ikigega Rusange'}
+              {language === 'en' ? 'Total Group Fund' : 'Fonds collectif total'}
             </span>
             <div className="w-8 h-8 bg-emerald-50 text-emerald-700 rounded-lg flex items-center justify-center">
               <PiggyBank size={18} />
             </div>
           </div>
           <div className="mt-4">
-            <h3 className="text-xl font-bold font-display text-oil-black">{formatRwf(groupSavings)}</h3>
+            <h3 className="text-xl font-bold font-display text-oil-black">{formatAmount(groupSavings)}</h3>
             {groupSavings === 0 && (
               <span className="text-[10px] text-text-secondary font-medium block mt-1">
-                {language === 'en' ? 'Starts at zero — grows with member contributions' : 'Itangira kuri zeru — rikura n’imisanzu'}
+                {language === 'en' ? 'Starts at zero — grows with member contributions' : 'Commence à zéro — croît avec les contributions des membres'}
               </span>
             )}
           </div>
@@ -119,16 +121,19 @@ export default function AdminDashboard({ state, language, onStateChange, onNavig
         <div className="bg-white border border-border-subtle rounded-xl p-5 shadow-subtle flex flex-col justify-between">
           <div className="flex justify-between items-start">
             <span className="text-xs font-bold text-text-secondary uppercase tracking-wider">
-              {language === 'en' ? 'Active Loans' : 'Inguzanyo zirasohotse'}
+              {language === 'en' ? 'Active Loans' : 'Prêts actifs'}
             </span>
-            <div className="w-8 h-8 bg-amber-50 text-warning rounded-lg flex items-center justify-center">
-              <Landmark size={18} />
+            <div className="flex items-center gap-2">
+              <CurrencySwitcher currency={currency} onChange={setCurrency} options={options} compact />
+              <div className="w-8 h-8 bg-amber-50 text-warning rounded-lg flex items-center justify-center">
+                <Landmark size={18} />
+              </div>
             </div>
           </div>
           <div className="mt-4">
-            <h3 className="text-xl font-bold font-display text-oil-black">{formatRwf(activeLoansAmount)}</h3>
+            <h3 className="text-xl font-bold font-display text-oil-black">{formatCurrency(activeLoansAmount, currency, cdfRate)}</h3>
             <span className="text-[10px] text-text-secondary font-semibold block mt-1">
-              🔄 {activeLoansCount} {language === 'en' ? 'currently active' : 'inguzanyo ziracyakora'}
+              🔄 {activeLoansCount} {language === 'en' ? 'currently active' : 'actuellement actifs'}
             </span>
           </div>
         </div>
@@ -137,14 +142,14 @@ export default function AdminDashboard({ state, language, onStateChange, onNavig
         <div className="bg-white border border-border-subtle rounded-xl p-5 shadow-subtle flex flex-col justify-between">
           <div className="flex justify-between items-start">
             <span className="text-xs font-bold text-text-secondary uppercase tracking-wider">
-              {language === 'en' ? 'Total Members' : 'Abanyamuryango'}
+              {language === 'en' ? 'Total Members' : 'Membres totaux'}
             </span>
             <div className="w-8 h-8 bg-primary/10 text-primary rounded-lg flex items-center justify-center">
               <Users size={18} />
             </div>
           </div>
           <div className="mt-4">
-            <h3 className="text-xl font-bold font-display text-oil-black">{users.length} {language === 'en' ? 'Savers' : 'Abazirizwa'}</h3>
+            <h3 className="text-xl font-bold font-display text-oil-black">{users.length} {language === 'en' ? 'Savers' : 'Épargnants'}</h3>
             {/* Avatar Stack */}
             <div className="flex items-center gap-1.5 mt-2">
               <div className="flex -space-x-2">
@@ -158,7 +163,7 @@ export default function AdminDashboard({ state, language, onStateChange, onNavig
                 ))}
               </div>
               <span className="text-[10px] text-text-secondary font-bold">
-                + {users.length > 3 ? users.length - 3 : 0} {language === 'en' ? 'more' : 'abandi'}
+                + {users.length > 3 ? users.length - 3 : 0} {language === 'en' ? 'more' : 'de plus'}
               </span>
             </div>
           </div>
@@ -170,7 +175,7 @@ export default function AdminDashboard({ state, language, onStateChange, onNavig
         }`}>
           <div className="flex justify-between items-start">
             <span className="text-xs font-bold text-text-secondary uppercase tracking-wider">
-              {language === 'en' ? 'Pending Approvals' : 'Ubusabe buhari'}
+              {language === 'en' ? 'Pending Approvals' : 'Approbations en attente'}
             </span>
             <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
               pendingRequests.length > 0 ? 'bg-red-100 text-error animate-pulse' : 'bg-neutral-100 text-neutral-500'
@@ -180,24 +185,26 @@ export default function AdminDashboard({ state, language, onStateChange, onNavig
           </div>
           <div className="mt-4">
             <h3 className="text-xl font-bold font-display text-oil-black">
-              {pendingRequests.length} {language === 'en' ? 'Requests' : 'Ubusabe'}
+              {pendingRequests.length} {language === 'en' ? 'Requests' : 'Demandes'}
             </h3>
             {pendingRequests.length > 0 ? (
               <button
                 onClick={() => onNavigateToTab('approvals')}
                 className="text-[10px] text-error font-bold flex items-center gap-1 mt-1 hover:underline"
               >
-                {language === 'en' ? 'Review Now' : 'Suzuma None'}
+                {language === 'en' ? 'Review Now' : 'Examiner maintenant'}
                 <ChevronRight size={10} />
               </button>
             ) : (
               <span className="text-[10px] text-text-secondary font-medium block mt-1">
-                {language === 'en' ? 'All caught up' : 'Byose byakemutse'}
+                {language === 'en' ? 'All caught up' : 'Tout est à jour'}
               </span>
             )}
           </div>
         </div>
       </div>
+
+      <CooperativeRiskWatch language={language} />
 
       {/* Middle row: Quick Actions & Staging Announcement */}
       <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
@@ -206,12 +213,12 @@ export default function AdminDashboard({ state, language, onStateChange, onNavig
           <div className="flex justify-between items-end mb-4 border-b border-border-subtle/50 pb-3">
             <div>
               <h3 className="text-sm font-bold font-display text-oil-black">
-                {language === 'en' ? 'Group Savings Over Time' : 'Imikurire y’ikigega rusange'}
+                {language === 'en' ? 'Group Savings Over Time' : 'Épargne collective dans le temps'}
               </h3>
               <p className="text-[11px] text-text-secondary">6-Month Cooperative Compound Index</p>
             </div>
             <span className="text-xs font-bold text-primary bg-primary/10 px-2.5 py-1 rounded-full">
-              {formatRwf(groupSavings)}
+              {formatAmount(groupSavings)}
             </span>
           </div>
 
@@ -222,12 +229,12 @@ export default function AdminDashboard({ state, language, onStateChange, onNavig
                 language={language}
                 icon={<TrendingUp size={24} />}
                 titleEn="Group savings chart will grow here"
-                titleRw="Igishushanyo cy’ikigega kizaguka hano"
-                descriptionEn="As members contribute, Terura tracks your cooperative fund over time."
-                descriptionRw="Abanyamuryango bamaze gutanga imisanzu, Terura izerekana iterambere ry’ikigega cy’itsinda."
+                titleFr="Le graphique d'épargne collective apparaîtra ici"
+                descriptionEn="As members contribute, Kumbuka tracks your cooperative fund over time."
+                descriptionFr="Au fur et à mesure des contributions, Kumbuka suit l'évolution du fonds coopératif."
                 action={{
                   labelEn: 'Register First Member',
-                  labelRw: 'Andika Umunyamuryango wa Mbere',
+                  labelFr: 'Inscrire le premier membre',
                   onClick: () => setShowAddMemberModal(true),
                 }}
               />
@@ -257,7 +264,7 @@ export default function AdminDashboard({ state, language, onStateChange, onNavig
         <div className="md:col-span-4 space-y-4">
           <div className="bg-white border border-border-subtle rounded-xl p-5 shadow-subtle">
             <h3 className="text-xs font-bold text-oil-black uppercase tracking-widest mb-3">
-              {language === 'en' ? 'Quick Actions' : 'Ibikorwa byihuse'}
+              {language === 'en' ? 'Quick Actions' : 'Actions rapides'}
             </h3>
             <div className="space-y-3">
               <button
@@ -265,14 +272,14 @@ export default function AdminDashboard({ state, language, onStateChange, onNavig
                 className="w-full h-11 bg-primary hover:bg-primary-hover active:scale-[0.98] text-white font-semibold rounded-xl text-xs flex items-center justify-center gap-2 transition-all shadow-subtle"
               >
                 <Plus size={16} />
-                {language === 'en' ? 'Register New Member' : 'Andika Umuryango Mushya'}
+                {language === 'en' ? 'Register New Member' : 'Inscrire un nouveau membre'}
               </button>
               <button
                 onClick={() => onNavigateToTab('members')}
                 className="w-full h-11 border border-border-subtle hover:bg-background active:scale-[0.98] text-oil-black font-semibold rounded-xl text-xs flex items-center justify-center gap-2 transition-all"
               >
                 <FileSpreadsheet size={16} className="text-primary" />
-                {language === 'en' ? 'Browse Member Ledger' : 'Reba ibitabo by’Abanyamuryango'}
+                {language === 'en' ? 'Browse Member Ledger' : 'Parcourir le registre des membres'}
               </button>
             </div>
           </div>
@@ -283,16 +290,16 @@ export default function AdminDashboard({ state, language, onStateChange, onNavig
             </div>
             <div>
               <p className="text-[11px] font-bold text-oil-black uppercase tracking-wide">
-                {language === 'en' ? 'Pending Approvals' : 'Ubusabe buhari'}
+                {language === 'en' ? 'Pending Approvals' : 'Approbations en attente'}
               </p>
               <p className="text-[11px] text-text-secondary leading-normal mt-0.5">
                 {pendingRequests.length > 0
                   ? language === 'en'
                     ? `${pendingRequests.length} loan request(s) waiting for committee review.`
-                    : `Ubusabe ${pendingRequests.length} bw’inguzanyo butegereje komite.`
+                    : `${pendingRequests.length} demande(s) de prêt en attente d'examen par le comité.`
                   : language === 'en'
                     ? 'No loan requests pending right now.'
-                    : 'Nta busabe bw’inguzanyo buhari ubu.'}
+                    : 'Aucune demande de prêt en attente pour le moment.'}
               </p>
             </div>
           </div>
@@ -310,12 +317,12 @@ export default function AdminDashboard({ state, language, onStateChange, onNavig
               <Plus size={18} className="rotate-45" />
             </button>
             <h3 className="text-lg font-bold font-display text-oil-black mb-1">
-              {language === 'en' ? 'Register Cooperative Member' : 'Andika Umuryango Mushya'}
+              {language === 'en' ? 'Register Cooperative Member' : 'Inscrire un membre coopératif'}
             </h3>
             <p className="text-xs text-text-secondary mb-4">
               {language === 'en' 
                 ? 'Create a login profile for a new cooperative member.' 
-                : 'Cyangwa andika imyirondoro n’uburenganzira bw’umunyamuryango mushya.'}
+                : 'Créez un profil de connexion pour un nouveau membre coopératif.'}
             </p>
 
             {successMsg ? (
@@ -334,7 +341,7 @@ export default function AdminDashboard({ state, language, onStateChange, onNavig
                 )}
                 <div>
                   <label className="block text-xs font-semibold text-oil-black mb-1">
-                    {language === 'en' ? 'Full Name' : 'Izina Ryose'}
+                    {language === 'en' ? 'Full Name' : 'Nom complet'}
                   </label>
                   <input
                     type="text"
@@ -348,7 +355,7 @@ export default function AdminDashboard({ state, language, onStateChange, onNavig
 
                 <div>
                   <label className="block text-xs font-semibold text-oil-black mb-1">
-                    {language === 'en' ? 'Phone Number' : 'Nomero ya Telefone'}
+                    {language === 'en' ? 'Phone Number' : 'Numéro de téléphone'}
                   </label>
                   <input
                     type="text"
@@ -362,7 +369,7 @@ export default function AdminDashboard({ state, language, onStateChange, onNavig
 
                 <div>
                   <label className="block text-xs font-semibold text-oil-black mb-1">
-                    {language === 'en' ? 'Temporary Login PIN (4 digits)' : 'Umubare w’ibanga w’agateganyo'}
+                    {language === 'en' ? 'Temporary Login PIN (4 digits)' : 'Code PIN temporaire (4 chiffres)'}
                   </label>
                   <input
                     type="password"
@@ -376,15 +383,15 @@ export default function AdminDashboard({ state, language, onStateChange, onNavig
 
                 <div>
                   <label className="block text-xs font-semibold text-oil-black mb-1">
-                    {language === 'en' ? 'Account Type' : 'Ubwoko bwa Konti'}
+                    {language === 'en' ? 'Account Type' : 'Type de compte'}
                   </label>
                   <select
                     value={newMemberRole}
                     onChange={(e) => setNewMemberRole(e.target.value as 'member' | 'admin')}
                     className="w-full h-11 px-3 bg-background border border-border-subtle rounded-xl text-sm focus:outline-none focus:border-primary"
                   >
-                    <option value="member">{language === 'en' ? 'Member' : 'Umunyamuryango'}</option>
-                    <option value="admin">{language === 'en' ? 'Committee Admin' : 'Komite'}</option>
+                    <option value="member">{language === 'en' ? 'Member' : 'Membre'}</option>
+                    <option value="admin">{language === 'en' ? 'Committee Admin' : 'Comité'}</option>
                   </select>
                 </div>
 
@@ -394,14 +401,14 @@ export default function AdminDashboard({ state, language, onStateChange, onNavig
                     onClick={() => setShowAddMemberModal(false)}
                     className="flex-1 h-11 border border-border-subtle text-oil-black font-semibold rounded-xl text-xs hover:bg-background"
                   >
-                    {language === 'en' ? 'Cancel' : 'Hagarika'}
+                    {language === 'en' ? 'Cancel' : 'Annuler'}
                   </button>
                   <button
                     type="submit"
                     disabled={submitting}
                     className="flex-1 h-11 bg-primary text-white font-semibold rounded-xl text-xs hover:bg-primary-hover disabled:opacity-60"
                   >
-                    {language === 'en' ? 'Register' : 'Andika'}
+                    {language === 'en' ? 'Register' : 'Inscrire'}
                   </button>
                 </div>
               </form>

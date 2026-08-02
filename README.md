@@ -1,138 +1,210 @@
-# Terura
+# Kumbuka
 
-**Terura** is a bilingual (English / Kinyarwanda) cooperative savings and growth platform for informal savings groups (*Ikimina*) in Rwanda. Members save and borrow within their group; committee admins review loan requests and investment opportunities curated from live Rwanda finance sources.
+**Kumbuka** — an AI agent with persistent, auditable memory for microfinance cooperative loan officers, built on CockroachDB and Claude via Amazon Bedrock.
 
-Built as a **MERN monorepo**: React frontend (Vite) + Express/MongoDB backend, deployable to **Vercel** (frontend) and **Render** (API).
-
----
-
-## Table of Contents
-
-- [Features](#features)
-- [Architecture](#architecture)
-- [Tech Stack](#tech-stack)
-- [Project Structure](#project-structure)
-- [Prerequisites](#prerequisites)
-- [Local Development](#local-development)
-- [Authentication & Roles](#authentication--roles)
-- [Environment Variables](#environment-variables)
-- [Production Deployment](#production-deployment)
-- [API Reference](#api-reference)
-- [Opportunity Pipeline](#opportunity-pipeline)
-- [Scripts](#scripts)
-- [Troubleshooting](#troubleshooting)
+*Kumbuka* means “remember” in Swahili.
 
 ---
 
-## Features
+## Try It Yourself
 
-### Members
-- **Sign In**, **Join**, and **Committee** login tabs (phone + 4-digit PIN)
-- Savings dashboard with balance, contributions, and loan requests
-- Savings history with trend visualization
-- Personalized financial tips (Google Gemini)
-- Bilingual UI toggle (EN / RW) on every screen
-- Profile settings, optional dark mode
-- Friendly error messages (wrong PIN, account not found, server unavailable)
+A live demo is deployed at: **https://kumbuka.vercel.app**
 
-### Committee / Admin
-- Group overview: total savings, active loans, member count
-- Register members (Member or Committee Admin role)
-- Loan approvals queue (approve / decline)
-- Smart Opportunity Feed — Firecrawl scrapes Rwanda finance sites, Gemini curates options
-- Flag opportunities for group vote; AI risk analysis per card
-- Group savings charts on admin dashboard
+**Committee Admin login** (full access: Memory Assistant, Cooperative Risk Watch, approvals, settings)
+
+| Field | Value |
+|-------|-------|
+| Phone | `0788123456` |
+| PIN | `1234` |
+
+**Sample Member login** (member dashboard, loan requests, payment updates)
+
+| Field | Value |
+|-------|-------|
+| Phone | `0788111111` |
+| PIN | `1234` |
+
+These are seeded demo accounts on a test dataset, not real cooperative data. Use the **Committee** tab on the login screen for admin access.
+
+> **Note:** After the Terura → Kumbuka rename, JWT storage uses `kumbuka_token` in `localStorage`. If you had an old session, log out and sign in again.
 
 ---
 
-## Architecture
+## Background: Why This Project Builds on Terura
 
-```mermaid
-flowchart LR
-  subgraph client [Frontend — Vercel]
-    SPA[React SPA]
-  end
+This project began as an **independent, disconnected copy** of **Terura** — a bilingual (English / French) cooperative savings and lending platform for informal savings groups (*Ikimina*), originally built with a MongoDB/Mongoose backend.
 
-  subgraph api [Backend — Render]
-    Express[Express API]
-    MongoDB[(MongoDB Atlas)]
-    Gemini[Gemini AI]
-    Firecrawl[Firecrawl]
-  end
+Rather than build a memory assistant from scratch with fabricated demo data, this hackathon submission adapted Terura’s real member, loan, and savings structure as its foundation:
 
-  SPA -->|"/api/* proxy or VITE_API_URL"| Express
-  Express --> MongoDB
-  Express --> Gemini
-  Express --> Firecrawl
+1. **Migrated the entire database layer** from MongoDB to **CockroachDB** (PostgreSQL wire protocol, Drizzle ORM).
+2. **Added an AI memory layer** on top: vector-indexed officer notes, grounded Q&A, audit logging, and cooperative-wide risk scanning.
+3. **Renamed the project to Kumbuka** to reflect its distinct identity and purpose.
+
+This repository has **no shared git history** and **no runtime dependency** on the original Terura codebase. Terura provided the cooperative domain model and UI shell; Kumbuka is the memory-and-risk layer built for the CockroachDB × AWS Hackathon.
+
+---
+
+## The Problem This Solves
+
+Loan officers at cooperatives manage many members and lose track of behavioral history, repayment patterns, and warnings over time — especially across officer turnover. Notes end up in notebooks, WhatsApp threads, or one officer’s memory.
+
+**Kumbuka** gives the cooperative a persistent, honest, auditable memory system that:
+
+- Grounds every answer in **real records** (notes, loans, timeline events)
+- **Never invents** member facts — citations and compliance flags are explicit
+- Logs every officer question and answer to an **immutable audit trail**
+- **Proactively surfaces** cooperative-wide risk patterns (unresolved flags, broken repayment promises)
+- Distinguishes **officer notes** from **member-reported payment updates**
+
+---
+
+## What Was Built
+
+| Feature | Description |
+|---------|-------------|
+| **Per-member Q&A** | Officers ask natural-language questions; Claude answers using retrieved notes, loans, timeline, and payment updates, with citation chips. |
+| **Compliance flag detection** | Notes can carry `compliance_flag` + summary; flagged context is surfaced in answers and risk scans. |
+| **Immutable audit log** | Every Memory Assistant Q&A is persisted to `audit_log` (question, answer, notes used). |
+| **Cross-member pattern search** | Cooperative-wide semantic search finds similar historical cases and how they resolved. |
+| **Loan outcome feedback loop** | Officers record `final_outcome` on resolved loans; flag accuracy stats compare flagged vs unflagged outcomes. |
+| **Unified member timeline** | Chronological view: notes, deposits, loan requests, repayments (`member_timeline` view). |
+| **Session conversation memory** | Last 3 Q&A pairs per member sent as context for follow-up questions (in-memory per session). |
+| **Read-only tool-use (MCP-style)** | When enabled, Claude invokes server-side read-only SQL tools against CockroachDB for open-ended cooperative queries. |
+| **Cooperative Risk Watch** | On-demand proactive scan across all members for unresolved flags and broken promises not reviewed in 60 days. |
+| **Voice question input** | Officers dictate questions via mic; **Groq Whisper API** transcribes into the text field (review before send). |
+| **Member payment updates** | Members self-report payment intent via `POST /api/payment-update`; stored as tagged notes, visually distinct from officer notes. |
+| **Admin exchange rate settings** | Committee manages USD/CDF rate; amounts stored internally in USD. RWF was removed to keep rate management simple. |
+
+---
+
+## Architecture Overview
+
+```
+┌─────────────────┐     ┌──────────────────┐
+│  React / Vite   │────▶│  Express API     │
+│  (Kumbuka UI)   │     │  (Node 20)       │
+└─────────────────┘     └────────┬─────────┘
+                                 │
+         ┌───────────────────────┴───────────────────────┐
+         │                                               │
+         │  PATH (a) — Standard Q&A & pattern search    │  PATH (b) — MCP tool-use
+         │                                               │  (open-ended Q&A, Risk Watch)
+         ▼                                               ▼
+  ┌─────────────┐                                 ┌───────────────┐
+  │  Voyage AI  │                                 │ Amazon Bedrock│
+  │  (embed Q)  │                                 │ Claude        │
+  └──────┬──────┘                                 └───────┬───────┘
+         │                                                 │
+         │ vector search                                   │ invokes read-only tools
+         ▼                                                 ▼
+  ┌──────────────────────────────────────────────────────────────────┐
+  │                         CockroachDB                              │
+  │              notes.embedding  │  members, loans, audit_log, …     │
+  └──────────────────────────────┬───────────────────────────────────┘
+                                 │
+                                 │  PATH (b) queries via
+                                 ▼
+                    ┌────────────────────────────┐
+                    │ CockroachDB Managed          │
+                    │ MCP Server                   │
+                    │ (read-only cooperative SQL)  │
+                    └──────────────┬─────────────────┘
+                                   │
+                                   └──▶ results ──▶ Bedrock/Claude ──▶ answer
+                                                    (Risk Watch → risk_scan_log)
+
+  Voice input (parallel):  Mic ──▶ Groq Whisper ──▶ transcribed text ──▶ Express API
 ```
 
-**Local dev:** Vite proxies `/api` → `http://localhost:5000`.
+**Path (a) — Standard Q&A & pattern search (Memory Assistant):**
 
-**Production (recommended):** Vercel rewrites `/api/*` to your Render URL via `BACKEND_URL` at build time. No CORS issues, no client env var required.
+1. Officer question → Express API → **Voyage AI** embeds the question.
+2. **CockroachDB** vector search on `notes.embedding` (`embedding <-> query`) retrieves relevant notes.
+3. Retrieved notes + member context + loans + timeline → **Amazon Bedrock / Claude** → grounded answer + citations.
+4. Q&A persisted to `audit_log`.
 
-**Production (alternative):** Set `VITE_API_URL` to your Render URL and configure `FRONTEND_URL` on the backend (no trailing slash).
+**Path (b) — MCP tool-use (open-ended questions & Cooperative Risk Watch):**
+
+1. Officer question or **Run new scan** trigger → Express API → **Amazon Bedrock / Claude**.
+2. Claude invokes **CockroachDB Managed MCP Server** read-only tools (`get_flagged_notes`, `get_broken_promise_notes`, `get_member_audit_activity`, `get_cooperative_loan_risks`).
+3. **Managed MCP Server** queries **CockroachDB** → results returned to Claude.
+4. Claude synthesizes final answer (Memory Assistant) or cooperative risk summary → **`risk_scan_log`** (Risk Watch).
+
+**Voice input (parallel):** Mic audio → **Groq Whisper** → transcribed text fills the question field; officer reviews and submits via Path (a) or (b).
+
+---
+
+## CockroachDB Tools Used (Hackathon)
+
+### Distributed vector indexing
+
+Officer and member notes are embedded with **Voyage AI `voyage-2`** (1024 dimensions, padded for storage) and stored in CockroachDB’s native **`VECTOR`** column on `notes.embedding`.
+
+Semantic retrieval uses CockroachDB’s distance operator:
+
+```sql
+ORDER BY embedding <-> '[...]'::vector
+LIMIT 5
+```
+
+This powers **per-member Q&A** (notes scoped to one member) and **cooperative-wide pattern search** (notes across all members).
+
+### Read-only tool-use against live cooperative data
+
+When `ENABLE_MCP_TOOL_USE=true`, Claude (via Bedrock tool-use) invokes **read-only server-side tools** that run parameterized SQL against CockroachDB:
+
+| Tool | Purpose |
+|------|---------|
+| `get_flagged_notes` | Unresolved compliance-flagged notes |
+| `get_broken_promise_notes` | Notes tagged with broken repayment promises |
+| `get_member_audit_activity` | Recent officer review activity per member |
+| `get_cooperative_loan_risks` | Active loans with elevated risk signals |
+
+These tools power the **MCP fallback path** for open-ended questions and **Cooperative Risk Watch** scans. All tools are read-only — they never mutate member or loan data.
+
+---
+
+## AWS Services Used (Hackathon)
+
+| Service | Role in Kumbuka |
+|---------|-----------------|
+| **Amazon Bedrock** | Hosts **Claude** for grounded answering, pattern search analysis, and tool-use orchestration via the Bedrock Runtime API (`InvokeModel`, Anthropic messages format). |
+
+### Honest substitutions
+
+During development we evaluated additional AWS services that were **blocked by account-level activation or billing verification** outside our control:
+
+| Evaluated | Blocker | Substitute used |
+|-----------|---------|-----------------|
+| **Amazon Titan Embeddings** | Service activation / billing delay | **Voyage AI** (`voyage-2`) for note embeddings |
+| **Amazon Transcribe** | `SubscriptionRequiredException` on new account | **Groq Whisper API** (`whisper-large-v3`) for voice question input |
+
+Bedrock + Claude is the core AWS integration and is live in production paths.
 
 ---
 
 ## Tech Stack
 
-| Layer | Technologies |
-|-------|-------------|
-| **Frontend** | React 19, Vite 6, Tailwind CSS v4, Lucide icons |
-| **Backend** | Express, MongoDB (Mongoose), JWT, bcrypt |
-| **AI** | Google Gemini (`gemini-2.5-flash` with model fallback) |
-| **Web data** | Firecrawl (BNR, RSE, Bank of Kigali, Urwego Finance, RDB) |
-| **Deploy** | Vercel (frontend), Render (backend), MongoDB Atlas |
+| Layer | Technology |
+|-------|------------|
+| Frontend | React 19, Vite, Tailwind CSS v4 |
+| Backend | Express, Node 20 |
+| Database | CockroachDB, Drizzle ORM |
+| Embeddings | Voyage AI (`voyage-2`) |
+| LLM | Claude via Amazon Bedrock |
+| Voice transcription | Groq Whisper API |
+| Auth | JWT (bcrypt PIN hashes) |
+| Deploy | Vercel (frontend), Render (API) |
 
 ---
 
-## Project Structure
+## Setup & Local Development
 
-```
-terura/
-├── frontend/
-│   ├── src/
-│   │   ├── components/       # Screens, Login, EmptyState, UserNotice
-│   │   ├── lib/
-│   │   │   ├── api.ts        # JWT client, safe JSON parsing
-│   │   │   └── userMessages.ts  # Bilingual user-facing errors
-│   │   ├── generated/        # Build-time API proxy flag (Vercel)
-│   │   ├── App.tsx
-│   │   └── types.ts
-│   ├── scripts/
-│   │   └── generate-vercel-config.mjs  # Injects /api proxy on build
-│   ├── vercel.json
-│   └── .env.example
-├── backend/
-│   ├── src/
-│   │   ├── config/           # DB, Rwanda finance source URLs
-│   │   ├── models/           # Mongoose schemas
-│   │   ├── routes/           # REST API
-│   │   ├── services/         # gemini, firecrawl, geminiClient
-│   │   ├── seed/             # Empty cooperative seeder
-│   │   ├── middleware/       # JWT auth
-│   │   └── index.ts
-│   ├── scripts/
-│   │   └── probe-ai.ts       # Local Gemini + Firecrawl health check
-│   └── .env.example
-├── render.yaml               # Render Blueprint
-├── package.json              # npm workspaces root
-└── README.md
-```
+### Prerequisites
 
----
-
-## Prerequisites
-
-- **Node.js** 20+ (backend pins `20.x` for Render)
-- **MongoDB** — [MongoDB Atlas](https://www.mongodb.com/atlas) free tier recommended
-- **Gemini API key** — [Google AI Studio](https://aistudio.google.com/apikey) (starts with `AIza...`)
-- **Firecrawl API key** — [firecrawl.dev](https://firecrawl.dev) (optional; falls back to Gemini-only)
-- **Git** + GitHub for deployment
-
----
-
-## Local Development
+- Node.js 20+
+- CockroachDB cluster ([CockroachDB Cloud](https://cockroachlabs.cloud/) free tier works)
+- API keys: Voyage AI, Groq, AWS (Bedrock), Gemini (optional — legacy Terura tips/opportunities)
 
 ### 1. Install dependencies
 
@@ -148,35 +220,45 @@ cp backend/.env.example backend/.env
 
 Edit `backend/.env`:
 
-```env
-PORT=5000
-MONGODB_URI=mongodb+srv://...
-JWT_SECRET=your-long-random-secret
-GEMINI_API_KEY=AIza...
-FIRECRAWL_API_KEY=fc-...
-FRONTEND_URL=https://terura.vercel.app
-ADMIN_PHONE=0788123456
+| Variable | Example / placeholder | Purpose |
+|----------|----------------------|---------|
+| `COCKROACH_DB_URL` | `postgresql://user:pass@host:26257/defaultdb?sslmode=verify-full` | CockroachDB connection string |
+| `VOYAGE_API_KEY` | `pa-...` | Note + question embeddings |
+| `AWS_ACCESS_KEY_ID` | `AKIA...` | Bedrock authentication |
+| `AWS_SECRET_ACCESS_KEY` | `...` | Bedrock authentication |
+| `AWS_REGION` | `us-east-1` | Bedrock region (must match enabled models) |
+| `BEDROCK_MODEL_ID` | `anthropic.claude-opus-4-6-v1` | Claude model ID enabled in your Bedrock console |
+| `GROQ_API_KEY` | `gsk_...` | Voice question transcription ([console.groq.com](https://console.groq.com)) |
+| `ENABLE_MCP_TOOL_USE` | `true` | Enables read-only tool-use + Cooperative Risk Watch |
+| `JWT_SECRET` | long random string | Signs session tokens |
+| `FRONTEND_URL` | `http://localhost:5173` | CORS allowed origin (no trailing slash) |
+| `ADMIN_PHONE` | `0788123456` | Phone allowed for first committee bootstrap |
+| `GEMINI_API_KEY` | `AIza...` | Optional — financial tips & opportunity feed (Terura legacy) |
+| `FIRECRAWL_API_KEY` | `fc-...` | Optional — live Rwanda finance scraping |
+
+### 3. Initialize database
+
+```bash
+cd backend && npm run db:setup
 ```
 
-| Variable | Purpose |
-|----------|---------|
-| `MONGODB_URI` | MongoDB connection string |
-| `JWT_SECRET` | Signs session tokens — use a long random string in production |
-| `GEMINI_API_KEY` | Financial tips and opportunity curation |
-| `FIRECRAWL_API_KEY` | Live scrape of Rwanda finance sources |
-| `FRONTEND_URL` | CORS allowed origin (no trailing slash) |
-| `ADMIN_PHONE` | Phone number allowed for first committee bootstrap |
-| `GEMINI_MODEL` | Optional override (default tries `gemini-2.5-flash` first) |
+Creates tables, vector column, `member_timeline` view, and supporting schema patches on startup.
 
-### 3. Seed the database
-
-Creates an empty cooperative named **Terura** — no demo users:
+### 4. Seed demo accounts
 
 ```bash
 npm run seed
 ```
 
-### 4. Start dev servers
+Creates cooperative **Kumbuka** with demo admin (`0788123456`) and member (`0788111111`), PIN **`1234`** for both.
+
+Optional — richer outcome/flag demo data:
+
+```bash
+cd backend && npm run seed:outcomes
+```
+
+### 5. Run locally
 
 ```bash
 npm run dev
@@ -184,266 +266,64 @@ npm run dev
 
 | Service | URL |
 |---------|-----|
-| Frontend | https://terura.vercel.app |
-| Backend | https://terura.onrender.com |
-| Health check | http://localhost:5000/health |
+| Frontend | http://localhost:5173 |
+| Backend | http://localhost:5000 |
+| Health | http://localhost:5000/health |
 
-Leave `frontend/.env` empty locally — Vite proxies `/api` to the backend automatically.
+Log in via the **Committee** tab (admin) or **Sign In** tab (member) using the credentials above.
 
----
+### Frontend production override
 
-## Authentication & Roles
-
-### Login screen tabs
-
-| Tab | Fields | API | Behavior |
-|-----|--------|-----|----------|
-| **Sign In** | Phone + PIN | `POST /api/login` `{ mode: "login" }` | Existing members only — no auto-register |
-| **Join** | Name + Phone + PIN | `POST /api/login` `{ mode: "register" }` | Creates a member account |
-| **Committee** | Phone + PIN | `POST /api/login/admin` | Admin role only |
-
-### First-time committee setup
-
-1. Set `ADMIN_PHONE` in `backend/.env` to the committee phone number.
-2. Run `npm run seed` if the database is empty.
-3. Open **Committee** tab → **First-time committee setup**.
-4. Register with that phone, your name, and a PIN.
-
-After bootstrap, add more admins from **Admin Dashboard → Register Member** (role: Committee Admin).
-
-### Session
-
-- JWT stored in `localStorage` as `terura_token`
-- Protected routes require `Authorization: Bearer <token>`
-- Language preference persists per user (logged in) or cooperative default (logged out)
+For Vercel deploys, set `BACKEND_URL` to your Render API URL (e.g. `https://kumbuka-api.onrender.com`). See `frontend/.env.example`.
 
 ---
 
-## Environment Variables
+## Database Schema Summary
 
-### Backend (`backend/.env`)
+| Table | Purpose |
+|-------|---------|
+| `members` | Cooperative members and committee admins (phone + PIN auth) |
+| `loan_requests` | Loan applications, approval status, repayment tracking, `final_outcome` |
+| `transactions` | Savings deposits, withdrawals, loan repayments |
+| `notes` | Officer notes and member payment updates; **`embedding VECTOR`** for semantic search |
+| `audit_log` | Immutable log of every Memory Assistant Q&A (question, answer, notes cited) |
+| `risk_scan_log` | Cooperative Risk Watch scan results + officer review status |
+| `exchange_rates` | Admin-managed USD/CDF conversion rates |
 
-See [backend/.env.example](backend/.env.example).
-
-### Frontend (`frontend/.env`)
-
-Only needed for production overrides. See [frontend/.env.example](frontend/.env.example).
-
-| Variable | When | Example |
-|----------|------|---------|
-| `BACKEND_URL` | Vercel build (recommended) | `https://terura.onrender.com` |
-| `VITE_API_URL` | Direct API calls (optional) | `https://terura.onrender.com` |
-
-**Do not** add trailing slashes to URLs.
+Supporting tables: `cooperatives`, `opportunities` (legacy Terura investment feed).
 
 ---
 
-## Production Deployment
+## Project Structure
 
-### Overview
-
-1. Deploy **backend** to Render → get API URL  
-2. Deploy **frontend** to Vercel with `BACKEND_URL`  
-3. Set `FRONTEND_URL` on Render to your Vercel domain  
-4. Seed production DB once  
-
----
-
-### Backend — Render
-
-**Option A: Blueprint** — Render Dashboard → New → Blueprint → connect repo (`render.yaml` included).
-
-**Option B: Manual Web Service**
-
-| Setting | Value |
-|---------|--------|
-| Root Directory | `backend` |
-| Build Command | `npm install && npm run build` |
-| Start Command | `npm run start` |
-| Health Check | `/health` |
-
-**Environment variables (Render):**
-
-```env
-MONGODB_URI=mongodb+srv://...
-JWT_SECRET=<long-random-string>
-GEMINI_API_KEY=AIza...
-FIRECRAWL_API_KEY=fc-...
-FRONTEND_URL=https://your-app.vercel.app
-ADMIN_PHONE=0788123456
-GEMINI_MODEL=gemini-2.5-flash
 ```
-
-**Seed production database** (Render Shell):
-
-```bash
-npm run seed
-```
-
-**Verify:** `https://your-api.onrender.com/health` → `{ "status": "ok" }`
-
----
-
-### Frontend — Vercel
-
-1. Import repo → set **Root Directory** to `frontend`
-2. Add environment variable:
-
-   ```env
-   BACKEND_URL=https://your-api.onrender.com
-   ```
-
-3. Deploy (build runs `prebuild` which injects `/api/*` proxy into `vercel.json`)
-
-**CLI:**
-
-```bash
-cd frontend
-vercel
-vercel env add BACKEND_URL production
-vercel --prod
-```
-
-**Alternative:** Set `VITE_API_URL` instead of `BACKEND_URL` to call Render directly. Requires correct `FRONTEND_URL` on backend for CORS.
-
----
-
-### Post-deploy checklist
-
-- [ ] `https://your-api.onrender.com/health` returns OK  
-- [ ] `https://your-api.onrender.com/api/ai/status` shows Gemini + Firecrawl status  
-- [ ] `FRONTEND_URL` on Render = `https://your-app.vercel.app` (no trailing slash)  
-- [ ] `BACKEND_URL` on Vercel = Render URL (no trailing slash)  
-- [ ] Committee bootstrap or member registration works  
-- [ ] Language toggle works while logged in and on login screen  
-
----
-
-## API Reference
-
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| GET | `/health` | — | Service health check |
-| GET | `/api/state` | Optional | Full application state |
-| GET | `/api/ai/status` | — | Gemini + Firecrawl key health |
-| GET | `/api/auth/status` | — | `{ hasAdmin: boolean }` |
-| POST | `/api/login` | — | Sign in or register (`mode: login \| register`) |
-| POST | `/api/login/admin` | — | Committee sign-in |
-| POST | `/api/logout` | JWT | End session |
-| POST | `/api/language` | Optional | Set EN/RW preference |
-| POST | `/api/add-member` | Admin | Register member or admin |
-| POST | `/api/update-profile` | JWT | Update member name |
-| POST | `/api/save` | JWT | Savings deposit |
-| POST | `/api/request-loan` | JWT | Submit loan request |
-| POST | `/api/approve-loan` | Admin | Approve loan |
-| POST | `/api/decline-loan` | Admin | Decline loan |
-| POST | `/api/repay-loan` | JWT | Repay approved loan |
-| POST | `/api/generate-tip` | JWT | AI financial tip |
-| POST | `/api/refresh-opportunities` | JWT | Firecrawl + Gemini opportunity refresh |
-| POST | `/api/analyze-opportunity` | JWT | AI risk analysis for one opportunity |
-| POST | `/api/flag-opportunity` | JWT | Flag for group vote |
-
----
-
-## Opportunity Pipeline
-
-```mermaid
-sequenceDiagram
-  participant User
-  participant API
-  participant Firecrawl
-  participant Gemini
-  participant DB as MongoDB
-
-  User->>API: POST /api/refresh-opportunities
-  API->>Firecrawl: Scrape BNR, RSE, BK, Urwego, RDB
-  Firecrawl-->>API: Markdown snippets + URLs
-  API->>Gemini: Curate 3–5 opportunities
-  Gemini-->>API: Structured JSON
-  API->>DB: Replace opportunity documents
-  API-->>User: Updated state
-```
-
-- Scraped sources live in `backend/src/config/rwandaSources.ts`
-- Without `FIRECRAWL_API_KEY`, Gemini generates opportunities from known Rwanda institutions (degraded mode)
-- Cards show clickable `sourceUrl` when available from scraped data
-
-**Local AI health check:**
-
-```bash
-cd backend && npx tsx scripts/probe-ai.ts
+kumbuka/
+├── frontend/          React UI (Vite, Tailwind)
+├── backend/
+│   ├── src/
+│   │   ├── db/        Drizzle schema + CockroachDB client
+│   │   ├── routes/    REST API (assistant, notes, loans, risk-scan, …)
+│   │   ├── services/  bedrock, embeddings, mcpReadOnlyTools, timeline, …
+│   │   └── seed/      Demo cooperative + accounts
+│   └── scripts/       Schema apply, seed-outcomes
+├── render.yaml        Render Blueprint (kumbuka-api)
+└── README.md
 ```
 
 ---
 
-## Scripts
+## Known Limitations & Next Steps
 
-| Command | Description |
-|---------|-------------|
-| `npm run dev` | Start frontend + backend concurrently |
-| `npm run seed` | Reset MongoDB to empty Terura cooperative |
-| `npm run build` | Build frontend for production |
-| `npm run start` | Start production backend (`node dist/index.js`) |
-| `npm run lint` | Type-check frontend and backend |
-
----
-
-## Troubleshooting
-
-### CORS blocked on Vercel
-
-**Symptom:** `Access-Control-Allow-Origin` mismatch.
-
-**Fix:** Set `FRONTEND_URL=https://your-app.vercel.app` on Render — **no trailing slash**. Redeploy Render after the CORS normalization fix in `backend/src/index.ts`.
-
-**Alternative:** Remove `VITE_API_URL` on Vercel and use `BACKEND_URL` only (same-origin proxy).
-
-### 405 on `/api/login`
-
-**Symptom:** POST returns 405, HTML instead of JSON.
-
-**Cause:** Vercel SPA rewrite catching `/api` without a backend proxy.
-
-**Fix:** Set `BACKEND_URL` on Vercel and redeploy with cache cleared.
-
-### Render build fails with `Unknown command: "build"`
-
-**Fix:** Build command must be `npm install && npm run build` (not `npm build`).
-
-### Gemini quota / invalid key
-
-**Symptom:** Opportunities or tips fail; check `GET /api/ai/status`.
-
-**Fix:**
-- Use a key from [Google AI Studio](https://aistudio.google.com/apikey) (`AIza...`)
-- Set `GEMINI_MODEL=gemini-2.5-flash` on Render
-- Wait for free-tier quota reset or enable billing
-
-### Language toggle logs user out
-
-**Fixed:** Language API sends JWT when logged in. Logged-out toggles use `auth: false` and update cooperative default language.
-
-### MongoDB connection on Windows
-
-If Atlas SRV lookup fails, the backend uses public DNS (`8.8.8.8`, `1.1.1.1`) in `backend/src/config/db.ts`.
-
----
-
-## Design System
-
-| Token | Value | Usage |
-|-------|-------|-------|
-| Background | `#FAF9F6` | App surface |
-| Primary | `#1F5C3F` | Buttons, active nav |
-| Accent | `#C9A227` | Committee tab, highlights |
-| Headings | DM Sans | Bold / Medium |
-| Body | Poppins | Regular / Medium |
-| Radius | `rounded-xl` | Cards, buttons, inputs |
-
-Layout: mobile-first with bottom navigation (members) and sidebar (admin/desktop).
+- **Memory consolidation at scale** — no automatic summarization of old notes into durable member profiles yet; retrieval is per-query vector search.
+- **Risk scanning is on-demand** — Cooperative Risk Watch runs when an officer clicks “Run new scan”; scheduled daily cron/Lambda is a natural next step.
+- **RWF removed** — only USD (internal storage) + CDF (display) via admin-managed exchange rate, to keep conversion logic simple.
+- **AWS service gaps** — Titan Embeddings and Transcribe were planned but replaced by Voyage AI and Groq due to account activation delays.
+- **Session memory is ephemeral** — conversation history resets on page refresh (by design for demo privacy).
 
 ---
 
 ## License
 
-Private project — Terura cooperative savings platform.
+This project is licensed under the **MIT License**. See [LICENSE](LICENSE) for the full text.
+
+Private hackathon submission — Kumbuka cooperative memory platform.

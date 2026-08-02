@@ -1,12 +1,14 @@
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
+import { desc, eq } from 'drizzle-orm';
+import { db } from '../db/index.js';
 import {
-  Cooperative,
-  User,
-  Transaction,
-  LoanRequest,
-  Opportunity,
-} from '../models/index.js';
+  cooperatives,
+  members,
+  transactions,
+  loanRequests,
+  opportunities,
+} from '../db/schema.js';
 import {
   optionalAuth,
   requireAuth,
@@ -14,7 +16,11 @@ import {
   signToken,
   type AuthRequest,
 } from '../middleware/auth.js';
-import { buildGlobalState, getDefaultCooperative } from '../utils/stateBuilder.js';
+import {
+  buildGlobalState,
+  countAdmins,
+  getDefaultCooperative,
+} from '../utils/stateBuilder.js';
 import {
   generateFinancialTip,
   refreshOpportunities,
@@ -24,6 +30,12 @@ import {
 import { scrapeRwandaFinanceSources } from '../services/firecrawl.js';
 import type { Language } from '../types/index.js';
 import { getDefaultAvatarUrl } from '../utils/avatar.js';
+import { convertToUsd, isValidCurrency } from '../utils/exchangeRates.js';
+import {
+  addMonthsToDate,
+  calculateTotalOwed,
+  DEFAULT_INTEREST_RATE,
+} from '../utils/loanCalculations.js';
 
 function isBootstrapAdminPhone(phone: string): boolean {
   const adminPhone = process.env.ADMIN_PHONE?.trim();
@@ -51,14 +63,16 @@ router.get('/state', optionalAuth, async (req: AuthRequest, res) => {
 router.post('/language', optionalAuth, async (req: AuthRequest, res) => {
   try {
     const { language } = req.body as { language?: Language };
-    const lang: Language = language === 'rw' ? 'rw' : 'en';
+    const lang: Language = language === 'fr' ? 'fr' : 'en';
 
     if (req.userId) {
-      await User.findByIdAndUpdate(req.userId, { language: lang });
+      await db.update(members).set({ language: lang }).where(eq(members.id, req.userId));
     } else {
       const coop = await getDefaultCooperative();
-      coop.defaultLanguage = lang;
-      await coop.save();
+      await db
+        .update(cooperatives)
+        .set({ defaultLanguage: lang })
+        .where(eq(cooperatives.id, coop.id));
     }
 
     const state = await buildGlobalState(req.userId);
@@ -93,7 +107,7 @@ router.get('/ai/status', async (_req, res) => {
 
 router.get('/auth/status', async (_req, res) => {
   try {
-    const adminCount = await User.countDocuments({ role: 'admin' });
+    const adminCount = await countAdmins();
     res.json({ hasAdmin: adminCount > 0 });
   } catch (error) {
     console.error('GET /api/auth/status error:', error);
@@ -117,7 +131,9 @@ router.post('/login', async (req, res) => {
 
     const authMode = mode === 'register' ? 'register' : 'login';
     const coop = await getDefaultCooperative();
-    const existing = await User.findOne({ phone });
+    const existing = await db.query.members.findFirst({
+      where: eq(members.phone, phone.trim()),
+    });
 
     if (authMode === 'login') {
       if (!existing) {
@@ -133,7 +149,7 @@ router.post('/login', async (req, res) => {
         return;
       }
 
-      await issueAuthResponse(existing._id.toString(), res);
+      await issueAuthResponse(existing.id, res);
       return;
     }
 
@@ -149,26 +165,29 @@ router.post('/login', async (req, res) => {
       return;
     }
 
-    const adminCount = await User.countDocuments({ role: 'admin' });
+    const adminCount = await countAdmins();
     const role =
       adminCount === 0 && isBootstrapAdminPhone(phone.trim()) ? 'admin' : 'member';
     const memberName = name.trim();
     const pinHash = await bcrypt.hash(pin, 10);
 
-    const user = await User.create({
-      name: memberName,
-      phone: phone.trim(),
-      pinHash,
-      role,
-      cooperativeId: coop._id,
-      cooperativeName: role === 'admin' ? `${coop.name} (Committee)` : coop.name,
-      savingsBalance: 0,
-      profileImage: getDefaultAvatarUrl(memberName),
-      status: 'active',
-      joinDate: new Date().toISOString().split('T')[0],
-    });
+    const [user] = await db
+      .insert(members)
+      .values({
+        name: memberName,
+        phone: phone.trim(),
+        pinHash,
+        role,
+        cooperativeId: coop.id,
+        cooperativeName: role === 'admin' ? `${coop.name} (Committee)` : coop.name,
+        savingsBalance: 0,
+        profileImage: getDefaultAvatarUrl(memberName),
+        status: 'active',
+        joinDate: new Date().toISOString().split('T')[0],
+      })
+      .returning();
 
-    await issueAuthResponse(user._id.toString(), res);
+    await issueAuthResponse(user.id, res);
   } catch (error) {
     console.error('POST /api/login error:', error);
     res.status(500).json({ error: 'Login failed' });
@@ -184,7 +203,9 @@ router.post('/login/admin', async (req, res) => {
       return;
     }
 
-    const user = await User.findOne({ phone: phone.trim() });
+    const user = await db.query.members.findFirst({
+      where: eq(members.phone, phone.trim()),
+    });
     if (!user) {
       res.status(404).json({
         error: 'Committee account not found / Konti ya komite ntabwo ibonetse',
@@ -205,7 +226,7 @@ router.post('/login/admin', async (req, res) => {
       return;
     }
 
-    await issueAuthResponse(user._id.toString(), res);
+    await issueAuthResponse(user.id, res);
   } catch (error) {
     console.error('POST /api/login/admin error:', error);
     res.status(500).json({ error: 'Committee login failed' });
@@ -227,13 +248,17 @@ router.post('/add-member', requireAdmin, async (req: AuthRequest, res) => {
 
     const memberRole = role === 'admin' ? 'admin' : 'member';
 
-    const existing = await User.findOne({ phone: phone.trim() });
+    const existing = await db.query.members.findFirst({
+      where: eq(members.phone, phone.trim()),
+    });
     if (existing) {
       res.status(409).json({ error: 'Phone number already registered / Telefone isanzwe ifite konti' });
       return;
     }
 
-    const admin = await User.findById(req.userId);
+    const admin = await db.query.members.findFirst({
+      where: eq(members.id, req.userId!),
+    });
     if (!admin) {
       res.status(401).json({ error: 'Not authenticated' });
       return;
@@ -243,12 +268,12 @@ router.post('/add-member', requireAdmin, async (req: AuthRequest, res) => {
     const pinHash = await bcrypt.hash(pin, 10);
     const memberName = name.trim();
 
-    await User.create({
+    await db.insert(members).values({
       name: memberName,
       phone: phone.trim(),
       pinHash,
       role: memberRole,
-      cooperativeId: coop._id,
+      cooperativeId: coop.id,
       cooperativeName: memberRole === 'admin' ? `${coop.name} (Committee)` : coop.name,
       savingsBalance: 0,
       profileImage: getDefaultAvatarUrl(memberName),
@@ -272,14 +297,18 @@ router.post('/update-profile', requireAuth, async (req: AuthRequest, res) => {
       return;
     }
 
-    const user = await User.findById(req.userId);
+    const user = await db.query.members.findFirst({
+      where: eq(members.id, req.userId!),
+    });
     if (!user) {
       res.status(401).json({ error: 'Not authenticated' });
       return;
     }
 
-    user.name = name.trim();
-    await user.save();
+    await db
+      .update(members)
+      .set({ name: name.trim() })
+      .where(eq(members.id, req.userId!));
 
     const state = await buildGlobalState(req.userId);
     res.json(state);
@@ -304,29 +333,38 @@ router.post('/save', requireAuth, async (req: AuthRequest, res) => {
       return;
     }
 
-    const user = await User.findById(req.userId);
+    const user = await db.query.members.findFirst({
+      where: eq(members.id, req.userId!),
+    });
     if (!user) {
       res.status(401).json({ error: 'Not authenticated' });
       return;
     }
 
-    user.savingsBalance += val;
-    await user.save();
+    const newBalance = user.savingsBalance + val;
+    await db
+      .update(members)
+      .set({ savingsBalance: newBalance })
+      .where(eq(members.id, user.id));
 
-    const coop = await Cooperative.findById(user.cooperativeId);
+    const coop = await db.query.cooperatives.findFirst({
+      where: eq(cooperatives.id, user.cooperativeId),
+    });
     if (coop) {
-      coop.groupSavings += val;
-      await coop.save();
+      await db
+        .update(cooperatives)
+        .set({ groupSavings: coop.groupSavings + val })
+        .where(eq(cooperatives.id, coop.id));
     }
 
-    await Transaction.create({
+    await db.insert(transactions).values({
       externalId: `tx-${Date.now()}`,
-      userId: user._id,
+      memberId: user.id,
       cooperativeId: user.cooperativeId,
       date: new Date().toISOString().split('T')[0],
       type: 'saved',
       amount: val,
-      runningBalance: user.savingsBalance,
+      runningBalance: newBalance,
       memberName: user.name,
       status: 'success',
     });
@@ -341,10 +379,12 @@ router.post('/save', requireAuth, async (req: AuthRequest, res) => {
 
 router.post('/request-loan', requireAuth, async (req: AuthRequest, res) => {
   try {
-    const { amount, reasonEn, reasonRw } = req.body as {
+    const { amount, reasonEn, reasonFr, termMonths, currency } = req.body as {
       amount?: number | string;
       reasonEn?: string;
-      reasonRw?: string;
+      reasonFr?: string;
+      termMonths?: number | string;
+      currency?: string;
     };
     const val = Number(amount);
     if (isNaN(val) || val <= 0) {
@@ -352,22 +392,48 @@ router.post('/request-loan', requireAuth, async (req: AuthRequest, res) => {
       return;
     }
 
-    const user = await User.findById(req.userId);
+    const term = Number(termMonths);
+    if (term !== 6 && term !== 12) {
+      res.status(400).json({
+        error: 'Repayment period must be 6 or 12 months / Igihe cyo kwishyura kigomba kuba amezi 6 cyangwa 12',
+      });
+      return;
+    }
+
+    const currencyCode = (currency ?? 'USD').toUpperCase();
+    if (!isValidCurrency(currencyCode)) {
+      res.status(400).json({ error: 'Invalid currency / Ifaranga ritari ryo' });
+      return;
+    }
+
+    const principalUsd = await convertToUsd(val, currencyCode);
+    if (principalUsd <= 0) {
+      res.status(400).json({ error: 'Invalid amount / Umubare si wo' });
+      return;
+    }
+
+    const user = await db.query.members.findFirst({
+      where: eq(members.id, req.userId!),
+    });
     if (!user) {
       res.status(401).json({ error: 'Not authenticated' });
       return;
     }
 
-    await LoanRequest.create({
+    await db.insert(loanRequests).values({
       externalId: `loan-${Date.now()}`,
-      userId: user._id,
+      memberId: user.id,
       cooperativeId: user.cooperativeId,
       memberName: user.name,
       memberImage: user.profileImage,
       date: new Date().toISOString().split('T')[0],
-      requestedAmount: val,
+      requestedAmount: principalUsd,
+      principal: principalUsd,
+      termMonths: term,
+      interestRate: DEFAULT_INTEREST_RATE,
+      currency: currencyCode as 'USD' | 'CDF',
       reasonEn: reasonEn || 'Cooperative support',
-      reasonRw: reasonRw || 'Gushyigikira umuryango',
+      reasonFr: reasonFr || 'Soutien à la coopérative',
       status: 'pending',
     });
 
@@ -382,34 +448,63 @@ router.post('/request-loan', requireAuth, async (req: AuthRequest, res) => {
 router.post('/approve-loan', requireAdmin, async (req: AuthRequest, res) => {
   try {
     const { id } = req.body as { id?: string };
-    const loan = await LoanRequest.findOne({ externalId: id });
+    const loan = await db.query.loanRequests.findFirst({
+      where: eq(loanRequests.externalId, id ?? ''),
+    });
     if (!loan) {
       res.status(404).json({ error: 'Loan request not found' });
       return;
     }
 
-    loan.status = 'approved';
-    const reqDate = new Date(loan.date);
-    reqDate.setDate(reqDate.getDate() + 30);
-    loan.repaymentDueDate = reqDate.toISOString().split('T')[0];
-    loan.repaid = false;
-    await loan.save();
-
-    const coop = await Cooperative.findById(loan.cooperativeId);
-    if (coop) {
-      coop.groupSavings -= loan.requestedAmount;
-      coop.activeLoansCount += 1;
-      coop.activeLoansAmount += loan.requestedAmount;
-      await coop.save();
+    if (loan.status !== 'pending') {
+      res.status(400).json({ error: 'Loan is not pending approval / Inguzanyo ntiyitegereje kwemezwa' });
+      return;
     }
 
-    await Transaction.create({
+    const principal = loan.principal ?? loan.requestedAmount;
+    const termMonths = (loan.termMonths ?? 6) as 6 | 12;
+    const interestRate = loan.interestRate ?? DEFAULT_INTEREST_RATE;
+    const totalOwed = calculateTotalOwed(principal, interestRate, termMonths);
+    const repaymentDueDate = addMonthsToDate(loan.date, termMonths);
+
+    await db
+      .update(loanRequests)
+      .set({
+        status: 'approved',
+        principal,
+        requestedAmount: principal,
+        termMonths,
+        interestRate,
+        totalOwed,
+        amountPaid: 0,
+        remainingBalance: totalOwed,
+        repaymentDueDate,
+        repaid: false,
+        repaidAmount: 0,
+      })
+      .where(eq(loanRequests.id, loan.id));
+
+    const coop = await db.query.cooperatives.findFirst({
+      where: eq(cooperatives.id, loan.cooperativeId),
+    });
+    if (coop) {
+      await db
+        .update(cooperatives)
+        .set({
+          groupSavings: coop.groupSavings - principal,
+          activeLoansCount: coop.activeLoansCount + 1,
+          activeLoansAmount: coop.activeLoansAmount + totalOwed,
+        })
+        .where(eq(cooperatives.id, coop.id));
+    }
+
+    await db.insert(transactions).values({
       externalId: `tx-payout-${Date.now()}`,
-      userId: loan.userId,
+      memberId: loan.memberId,
       cooperativeId: loan.cooperativeId,
       date: new Date().toISOString().split('T')[0],
       type: 'withdrew',
-      amount: loan.requestedAmount,
+      amount: principal,
       runningBalance: 0,
       memberName: loan.memberName,
       status: 'success',
@@ -426,14 +521,23 @@ router.post('/approve-loan', requireAdmin, async (req: AuthRequest, res) => {
 router.post('/decline-loan', requireAdmin, async (req: AuthRequest, res) => {
   try {
     const { id } = req.body as { id?: string };
-    const loan = await LoanRequest.findOne({ externalId: id });
+    const loan = await db.query.loanRequests.findFirst({
+      where: eq(loanRequests.externalId, id ?? ''),
+    });
     if (!loan) {
       res.status(404).json({ error: 'Loan request not found' });
       return;
     }
 
-    loan.status = 'declined';
-    await loan.save();
+    if (loan.status !== 'pending') {
+      res.status(400).json({ error: 'Loan is not pending / Inguzanyo ntiyitegereje' });
+      return;
+    }
+
+    await db
+      .update(loanRequests)
+      .set({ status: 'declined' })
+      .where(eq(loanRequests.id, loan.id));
 
     const state = await buildGlobalState(req.userId);
     res.json(state);
@@ -445,34 +549,107 @@ router.post('/decline-loan', requireAdmin, async (req: AuthRequest, res) => {
 
 router.post('/repay-loan', requireAuth, async (req: AuthRequest, res) => {
   try {
-    const { id } = req.body as { id?: string };
-    const loan = await LoanRequest.findOne({ externalId: id });
+    const { id, amount, currency } = req.body as {
+      id?: string;
+      amount?: number | string;
+      currency?: string;
+    };
+    const loan = await db.query.loanRequests.findFirst({
+      where: eq(loanRequests.externalId, id ?? ''),
+    });
     if (!loan) {
       res.status(404).json({ error: 'Loan request not found' });
       return;
     }
 
-    loan.repaid = true;
-    loan.repaidAmount = loan.requestedAmount;
-    await loan.save();
-
-    const coop = await Cooperative.findById(loan.cooperativeId);
-    if (coop) {
-      coop.groupSavings += loan.requestedAmount;
-      coop.activeLoansCount = Math.max(0, coop.activeLoansCount - 1);
-      coop.activeLoansAmount = Math.max(0, coop.activeLoansAmount - loan.requestedAmount);
-      await coop.save();
+    if (loan.status !== 'approved') {
+      res.status(400).json({ error: 'Loan is not approved / Inguzanyo ntiyemewe' });
+      return;
     }
 
-    const user = await User.findById(req.userId);
+    if (loan.repaid) {
+      res.status(400).json({ error: 'Loan already repaid / Inguzanyo yamaze kwishyurwa' });
+      return;
+    }
 
-    await Transaction.create({
+    const principal = loan.principal ?? loan.requestedAmount;
+    const termMonths = (loan.termMonths ?? 6) as 6 | 12;
+    const interestRate = loan.interestRate ?? DEFAULT_INTEREST_RATE;
+    const totalOwed =
+      loan.totalOwed ?? calculateTotalOwed(principal, interestRate, termMonths);
+    const currentPaid = loan.amountPaid ?? loan.repaidAmount ?? 0;
+    const remaining =
+      loan.remainingBalance ?? Math.max(0, totalOwed - currentPaid);
+
+    if (remaining <= 0) {
+      res.status(400).json({ error: 'Loan already repaid / Inguzanyo yamaze kwishyurwa' });
+      return;
+    }
+
+    const payVal = Number(amount);
+    if (isNaN(payVal) || payVal <= 0) {
+      res.status(400).json({ error: 'Invalid payment amount / Umubare wo kwishyura si wo' });
+      return;
+    }
+
+    const currencyCode = (currency ?? loan.currency ?? 'USD').toUpperCase();
+    if (!isValidCurrency(currencyCode)) {
+      res.status(400).json({ error: 'Invalid currency / Ifaranga ritari ryo' });
+      return;
+    }
+
+    let paymentUsd = await convertToUsd(payVal, currencyCode);
+    if (paymentUsd <= 0) {
+      res.status(400).json({ error: 'Invalid payment amount / Umubare wo kwishyura si wo' });
+      return;
+    }
+
+    if (paymentUsd > remaining) {
+      paymentUsd = remaining;
+    }
+
+    const newAmountPaid = currentPaid + paymentUsd;
+    const newRemaining = Math.max(0, totalOwed - newAmountPaid);
+    const fullyRepaid = newRemaining <= 0;
+
+    await db
+      .update(loanRequests)
+      .set({
+        amountPaid: newAmountPaid,
+        remainingBalance: newRemaining,
+        repaidAmount: newAmountPaid,
+        repaid: fullyRepaid,
+        totalOwed,
+      })
+      .where(eq(loanRequests.id, loan.id));
+
+    const coop = await db.query.cooperatives.findFirst({
+      where: eq(cooperatives.id, loan.cooperativeId),
+    });
+    if (coop) {
+      await db
+        .update(cooperatives)
+        .set({
+          groupSavings: coop.groupSavings + paymentUsd,
+          activeLoansAmount: Math.max(0, coop.activeLoansAmount - paymentUsd),
+          activeLoansCount: fullyRepaid
+            ? Math.max(0, coop.activeLoansCount - 1)
+            : coop.activeLoansCount,
+        })
+        .where(eq(cooperatives.id, coop.id));
+    }
+
+    const user = await db.query.members.findFirst({
+      where: eq(members.id, req.userId!),
+    });
+
+    await db.insert(transactions).values({
       externalId: `tx-repay-${Date.now()}`,
-      userId: loan.userId,
+      memberId: loan.memberId,
       cooperativeId: loan.cooperativeId,
       date: new Date().toISOString().split('T')[0],
       type: 'repaid_loan',
-      amount: loan.requestedAmount,
+      amount: paymentUsd,
       runningBalance: user?.savingsBalance ?? 0,
       memberName: loan.memberName,
       status: 'success',
@@ -494,19 +671,23 @@ router.post('/update-profile-image', requireAuth, async (req: AuthRequest, res) 
       return;
     }
 
-    const user = await User.findById(req.userId);
+    const user = await db.query.members.findFirst({
+      where: eq(members.id, req.userId!),
+    });
     if (!user) {
       res.status(401).json({ error: 'Not authenticated' });
       return;
     }
 
-    user.profileImage = profileImage;
-    await user.save();
+    await db
+      .update(members)
+      .set({ profileImage })
+      .where(eq(members.id, user.id));
 
-    await LoanRequest.updateMany(
-      { userId: user._id },
-      { memberImage: profileImage }
-    );
+    await db
+      .update(loanRequests)
+      .set({ memberImage: profileImage })
+      .where(eq(loanRequests.memberId, user.id));
 
     const state = await buildGlobalState(req.userId);
     res.json(state);
@@ -519,14 +700,18 @@ router.post('/update-profile-image', requireAuth, async (req: AuthRequest, res) 
 router.post('/flag-opportunity', requireAuth, async (req: AuthRequest, res) => {
   try {
     const { id } = req.body as { id?: string };
-    const opp = await Opportunity.findOne({ externalId: id });
+    const opp = await db.query.opportunities.findFirst({
+      where: eq(opportunities.externalId, id ?? ''),
+    });
     if (!opp) {
       res.status(404).json({ error: 'Opportunity not found' });
       return;
     }
 
-    opp.isFlagged = !opp.isFlagged;
-    await opp.save();
+    await db
+      .update(opportunities)
+      .set({ isFlagged: !opp.isFlagged })
+      .where(eq(opportunities.id, opp.id));
 
     const state = await buildGlobalState(req.userId);
     res.json(state);
@@ -538,22 +723,26 @@ router.post('/flag-opportunity', requireAuth, async (req: AuthRequest, res) => {
 
 router.post('/generate-tip', requireAuth, async (req: AuthRequest, res) => {
   try {
-    const user = await User.findById(req.userId);
+    const user = await db.query.members.findFirst({
+      where: eq(members.id, req.userId!),
+    });
     if (!user) {
       res.status(401).json({ error: 'Not authenticated' });
       return;
     }
 
-    const txs = await Transaction.find({ userId: user._id }).sort({ date: -1 });
-    const txSummary = txs.map((t) => `${t.date}: ${t.type} ${t.amount} RWF`).join('\n');
+    const txs = await db.query.transactions.findMany({
+      where: eq(transactions.memberId, user.id),
+      orderBy: [desc(transactions.date)],
+    });
+    const txSummary = txs.map((t) => `${t.date}: ${t.type} ${t.amount} USD`).join('\n');
 
     const tip = await generateFinancialTip(user.name, user.savingsBalance, txSummary);
 
-    const coop = await Cooperative.findById(user.cooperativeId);
-    if (coop) {
-      coop.currentTip = tip;
-      await coop.save();
-    }
+    await db
+      .update(cooperatives)
+      .set({ currentTip: tip })
+      .where(eq(cooperatives.id, user.cooperativeId));
 
     const state = await buildGlobalState(req.userId);
     res.json(state);
@@ -565,7 +754,9 @@ router.post('/generate-tip', requireAuth, async (req: AuthRequest, res) => {
 
 router.post('/refresh-opportunities', requireAuth, async (req: AuthRequest, res) => {
   try {
-    const user = await User.findById(req.userId);
+    const user = await db.query.members.findFirst({
+      where: eq(members.id, req.userId!),
+    });
     if (!user) {
       res.status(401).json({ error: 'Not authenticated' });
       return;
@@ -592,19 +783,19 @@ router.post('/refresh-opportunities', requireAuth, async (req: AuthRequest, res)
 
     const list = refreshResult.opportunities;
 
-    await Opportunity.deleteMany({ cooperativeId: user.cooperativeId });
+    await db.delete(opportunities).where(eq(opportunities.cooperativeId, user.cooperativeId));
 
     for (const item of list) {
-      await Opportunity.create({
+      await db.insert(opportunities).values({
         externalId: item.id || `opp-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
         cooperativeId: user.cooperativeId,
         titleEn: item.titleEn,
-        titleRw: item.titleRw,
+        titleFr: item.titleFr,
         source: item.source,
         sourceUrl: item.sourceUrl || undefined,
         returnRate: item.returnRate,
         summaryEn: item.summaryEn,
-        summaryRw: item.summaryRw,
+        summaryFr: item.summaryFr,
         isFlagged: false,
         foundAgo: item.foundAgo,
         category: item.category,
@@ -623,7 +814,9 @@ router.post('/refresh-opportunities', requireAuth, async (req: AuthRequest, res)
 router.post('/analyze-opportunity', requireAuth, async (req: AuthRequest, res) => {
   try {
     const { id } = req.body as { id?: string };
-    const opp = await Opportunity.findOne({ externalId: id });
+    const opp = await db.query.opportunities.findFirst({
+      where: eq(opportunities.externalId, id ?? ''),
+    });
     if (!opp) {
       res.status(404).json({ error: 'Opportunity not found' });
       return;
@@ -634,11 +827,11 @@ router.post('/analyze-opportunity', requireAuth, async (req: AuthRequest, res) =
       {
         id: opp.externalId,
         titleEn: opp.titleEn,
-        titleRw: opp.titleRw,
+        titleFr: opp.titleFr,
         source: opp.source,
         returnRate: opp.returnRate,
         summaryEn: opp.summaryEn,
-        summaryRw: opp.summaryRw,
+        summaryFr: opp.summaryFr,
         isFlagged: opp.isFlagged,
         foundAgo: opp.foundAgo,
         category: opp.category,
@@ -646,9 +839,13 @@ router.post('/analyze-opportunity', requireAuth, async (req: AuthRequest, res) =
       coop.groupSavings
     );
 
-    opp.aiAnalysisEn = analysis.aiAnalysisEn;
-    opp.aiAnalysisRw = analysis.aiAnalysisRw;
-    await opp.save();
+    await db
+      .update(opportunities)
+      .set({
+        aiAnalysisEn: analysis.aiAnalysisEn,
+        aiAnalysisFr: analysis.aiAnalysisFr,
+      })
+      .where(eq(opportunities.id, opp.id));
 
     const state = await buildGlobalState(req.userId);
     res.json(state);

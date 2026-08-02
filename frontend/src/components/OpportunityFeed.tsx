@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { GlobalState, Language, Opportunity } from '../types';
+import { GlobalState, Language } from '../types';
 import { apiPost } from '../lib/api';
 import EmptyState from './EmptyState';
 import UserNotice from './UserNotice';
@@ -67,17 +67,16 @@ export default function OpportunityFeed({ state, language, onStateChange }: Oppo
 
   return (
     <div className="space-y-6 animate-fade-in">
-      {/* Top Banner with scrape stats */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h2 className="text-xl font-bold font-display text-oil-black tracking-tight flex items-center gap-2">
             <Layers className="text-primary stroke-[1.5]" size={22} />
-            {language === 'en' ? 'Smart Opportunity Feed' : 'Ishoramari n’Amahirwe ya AI'}
+            {language === 'en' ? 'Smart Opportunity Feed' : 'Flux d\'opportunités intelligent'}
           </h2>
           <p className="text-xs text-text-secondary">
             {language === 'en'
-              ? 'Live data from Rwanda finance sources, curated by Gemini AI for your cooperative'
-              : 'Amakuru ava mu masoko y’imari mu Rwanda, yatoranyijwe na Gemini AI ku bw’itsinda ryawe'}
+              ? 'Live data from regional finance sources, curated by Gemini AI for your cooperative'
+              : 'Données en direct de sources financières régionales, sélectionnées par Gemini AI pour votre coopérative'}
           </p>
         </div>
 
@@ -89,28 +88,27 @@ export default function OpportunityFeed({ state, language, onStateChange }: Oppo
           <RefreshCw size={14} className={refreshing ? 'animate-spin' : ''} />
           {refreshing
             ? language === 'en'
-              ? 'Fetching live data from Rwanda finance sources…'
-              : 'Turakura amakuru mu masoko y’imari mu Rwanda…'
+              ? 'Fetching live data from regional finance sources…'
+              : 'Récupération des données financières en cours…'
             : language === 'en'
-              ? 'Scan Rwanda Sources'
-              : 'Suzuma Amasoko mu Rwanda'}
+              ? 'Scan Regional Sources'
+              : 'Analyser les sources régionales'}
         </button>
       </div>
 
       {refreshError && <UserNotice message={refreshError} />}
 
-      {/* Main Grid display of cards */}
       {opportunities.length === 0 ? (
         <EmptyState
           language={language}
           icon={<Search size={28} />}
           titleEn="Looking for new opportunities..."
-          titleRw="Turashaka amahirwe mashya..."
+          titleFr="Recherche de nouvelles opportunités..."
           descriptionEn="Your opportunity feed is empty. Refresh to discover savings and investment options curated for your cooperative."
-          descriptionRw="Nta mahirwe ahari ubu. Kanda Refresh urebe amahirwe yo kuzigama n’ishoramari yujuje ibikenewe n’itsinda ryawe."
+          descriptionFr="Votre flux d'opportunités est vide. Actualisez pour découvrir des options d'épargne et d'investissement adaptées à votre coopérative."
           action={{
             labelEn: 'Refresh Opportunities',
-            labelRw: 'Vugurura Amahirwe',
+            labelFr: 'Actualiser les opportunités',
             onClick: handleRefreshFeed,
           }}
         />
@@ -121,14 +119,13 @@ export default function OpportunityFeed({ state, language, onStateChange }: Oppo
             key={opp.id} 
             className="bg-white border border-border-subtle rounded-xl shadow-subtle flex flex-col justify-between overflow-hidden relative"
           >
-            {/* Top Rate Header Tag */}
             <div className="bg-primary/5 border-b border-border-subtle/50 px-5 py-4 flex justify-between items-center">
               <span className="text-[10px] font-bold text-primary uppercase bg-primary/10 px-2.5 py-1 rounded-full">
                 {opp.category}
               </span>
               <div className="text-right">
                 <span className="text-[10px] font-bold text-text-secondary uppercase tracking-wider block">
-                  {language === 'en' ? 'Target Return' : 'Inyungu ifatika'}
+                  {language === 'en' ? 'Target Return' : 'Rendement cible'}
                 </span>
                 <span className="text-sm font-bold text-emerald-700 block mt-0.5">
                   {opp.returnRate}
@@ -136,12 +133,11 @@ export default function OpportunityFeed({ state, language, onStateChange }: Oppo
               </div>
             </div>
 
-            {/* Body */}
             <div className="p-5 flex-1 flex flex-col justify-between">
               <div>
                 <div className="flex justify-between items-start mb-2">
                   <h3 className="text-base font-bold font-display text-oil-black">
-                    {language === 'en' ? opp.titleEn : opp.titleRw}
+                    {language === 'en' ? opp.titleEn : opp.titleFr}
                   </h3>
                   <span className="text-[10px] text-text-secondary font-medium">
                     {opp.foundAgo}
@@ -149,7 +145,7 @@ export default function OpportunityFeed({ state, language, onStateChange }: Oppo
                 </div>
 
                 <div className="flex items-center gap-1 text-[10px] text-text-secondary font-bold uppercase tracking-wider mb-4">
-                  <span>{language === 'en' ? 'Source' : 'Ikomokanyoboro'}:</span>
+                  <span>{language === 'en' ? 'Source' : 'Source'}:</span>
                   {opp.sourceUrl ? (
                     <a
                       href={opp.sourceUrl}
@@ -165,19 +161,18 @@ export default function OpportunityFeed({ state, language, onStateChange }: Oppo
                 </div>
 
                 <p className="text-xs text-text-secondary leading-relaxed mb-4">
-                  {language === 'en' ? opp.summaryEn : opp.summaryRw}
+                  {language === 'en' ? opp.summaryEn : opp.summaryFr}
                 </p>
 
-                {/* AI Deep Risk Analysis panel */}
                 {opp.aiAnalysisEn ? (
                   <div className="bg-emerald-50/55 border border-emerald-100 rounded-xl p-4 mb-4 relative overflow-hidden">
                     <div className="absolute top-0 right-0 w-12 h-12 bg-emerald-500/5 rounded-bl-full pointer-events-none"></div>
                     <div className="flex items-center gap-1.5 text-emerald-800 font-bold text-[10px] uppercase tracking-wider mb-1.5">
                       <Sparkles size={13} className="fill-emerald-500 stroke-[1.5]" />
-                      <span>{language === 'en' ? 'Gemini AI Suitability Analysis' : 'Gemini AI Isuzumabuguzi'}</span>
+                      <span>{language === 'en' ? 'Gemini AI Suitability Analysis' : 'Analyse de pertinence Gemini AI'}</span>
                     </div>
                     <p className="text-xs text-emerald-900 leading-relaxed font-medium">
-                      {language === 'en' ? opp.aiAnalysisEn : opp.aiAnalysisRw}
+                      {language === 'en' ? opp.aiAnalysisEn : opp.aiAnalysisFr}
                     </p>
                   </div>
                 ) : (
@@ -188,13 +183,12 @@ export default function OpportunityFeed({ state, language, onStateChange }: Oppo
                   >
                     <Sparkles size={12} className={analyzingId === opp.id ? 'animate-spin' : ''} />
                     {analyzingId === opp.id 
-                      ? (language === 'en' ? 'Analyzing risk...' : 'AI iri gukora...') 
-                      : (language === 'en' ? 'Ask Gemini AI to Analyze Risk' : 'Saba AI gusesengura ibyago')}
+                      ? (language === 'en' ? 'Analyzing risk...' : 'Analyse des risques...') 
+                      : (language === 'en' ? 'Ask Gemini AI to Analyze Risk' : 'Demander une analyse des risques à Gemini AI')}
                   </button>
                 )}
               </div>
 
-              {/* Lower Section Card Actions */}
               <div className="border-t border-border-subtle/50 pt-4 flex gap-2">
                 <button
                   onClick={() => handleFlagForVote(opp.id)}
@@ -207,8 +201,8 @@ export default function OpportunityFeed({ state, language, onStateChange }: Oppo
                   <Flag size={14} className={opp.isFlagged ? 'fill-accent' : ''} />
                   <span>
                     {opp.isFlagged 
-                      ? (language === 'en' ? 'Flagged for Vote' : 'Hatorewe itsinda') 
-                      : (language === 'en' ? 'Flag for Vote' : 'Saba Gutora')}
+                      ? (language === 'en' ? 'Flagged for Vote' : 'Soumis au vote') 
+                      : (language === 'en' ? 'Flag for Vote' : 'Proposer au vote')}
                   </span>
                 </button>
               </div>

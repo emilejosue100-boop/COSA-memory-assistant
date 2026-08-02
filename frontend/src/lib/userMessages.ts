@@ -24,84 +24,84 @@ interface UserMessageInput {
 const messages = {
   wrongPin: {
     en: 'Incorrect PIN. Please check your 4-digit code and try again.',
-    rw: "Nomero y'ibanga si yo. Reba umubare w'imibare 4 hanyuma ugerageze.",
+    fr: 'Code PIN incorrect. Vérifiez votre code à 4 chiffres et réessayez.',
   },
   accountNotFound: {
     en: 'No account found for this phone number. Use Join to register, or ask your committee.',
-    rw: 'Nta konti ibonetse kuri iyi telefone. Kanda Iyandikishe cyangwa ubaze komite yawe.',
+    fr: 'Aucun compte trouvé pour ce numéro. Utilisez Inscription ou contactez votre comité.',
   },
   committeeNotFound: {
     en: 'No committee account found for this phone number.',
-    rw: 'Nta konti ya komite ibonetse kuri iyi telefone.',
+    fr: 'Aucun compte comité trouvé pour ce numéro.',
   },
   notCommittee: {
     en: 'This phone number is a member account, not a committee account. Use Sign In instead.',
-    rw: 'Iyi telefone ni konti y’umunyamuryango, si ya komite. Koresha Injira.',
+    fr: 'Ce numéro est un compte membre, pas comité. Utilisez Connexion.',
   },
   alreadyRegistered: {
     en: 'This phone number is already registered. Use Sign In instead.',
-    rw: 'Iyi telefone wasanzwe wayandikishije. Koresha Injira.',
+    fr: 'Ce numéro est déjà enregistré. Utilisez Connexion.',
   },
   nameRequired: {
     en: 'Please enter your full name to create an account.',
-    rw: 'Andika izina ryawe ryose uce ufungura konti.',
+    fr: 'Veuillez entrer votre nom complet pour créer un compte.',
   },
   network: {
     en: 'Could not connect. Check your internet connection and try again.',
-    rw: 'Ntitwashoboye guhuza. Reba ko ufite interineti hanyuma ugerageze.',
+    fr: 'Connexion impossible. Vérifiez votre internet et réessayez.',
   },
   serverUnreachable: {
-    en: 'Terura is temporarily unavailable. Please try again in a few minutes.',
-    rw: 'Terura ntiboneka ubu. Ongera ugerageze mu minota mike.',
+    en: 'Kumbuka is temporarily unavailable. Please try again in a few minutes.',
+    fr: 'Kumbuka est temporairement indisponible. Réessayez dans quelques minutes.',
   },
   serverDown: {
     en: 'Our servers are busy right now. Please try again shortly.',
-    rw: 'Seriveri zacu ziri gukora. Ongera ugerageze vuba.',
+    fr: 'Nos serveurs sont occupés. Veuillez réessayer sous peu.',
   },
   saveFailed: {
     en: 'Your savings could not be recorded. Please try again.',
-    rw: 'Ntibyashobokera kubika amafaranga yawe. Ongera ugerageze.',
+    fr: 'Votre épargne n’a pas pu être enregistrée. Réessayez.',
   },
   loanFailed: {
     en: 'Your loan request could not be sent. Please try again.',
-    rw: 'Ntibyashobokera kohereza ubusabe bw’inguzanyo. Ongera ugerageze.',
+    fr: 'Votre demande de prêt n’a pas pu être envoyée. Réessayez.',
   },
   repayFailed: {
     en: 'Repayment could not be processed. Please try again.',
-    rw: 'Kwishyura ntibyakunze. Ongera ugerageze.',
+    fr: 'Le remboursement n’a pas pu être traité. Réessayez.',
   },
   approveFailed: {
     en: 'That action could not be completed. Please try again.',
-    rw: 'Igikorwa nticyakunze. Ongera ugerageze.',
+    fr: 'Cette action n’a pas pu être effectuée. Réessayez.',
   },
   profileFailed: {
     en: 'Your profile could not be updated. Please try again.',
-    rw: 'Imyirondoro yawe ntiyavuguruwe. Ongera ugerageze.',
+    fr: 'Votre profil n’a pas pu être mis à jour. Réessayez.',
   },
   registerFailed: {
     en: 'Member registration failed. Check the details and try again.',
-    rw: 'Kwandika umunyamuryango byanze. Reba amakuru hanyuma ugerageze.',
+    fr: 'L’inscription a échoué. Vérifiez les informations et réessayez.',
   },
   opportunityFailed: {
     en: 'Could not refresh opportunities right now. Try again later.',
-    rw: 'Ntibyashoboye kuvugurura amahirwe ubu. Ongera ugerageze.',
+    fr: 'Impossible d’actualiser les opportunités. Réessayez plus tard.',
   },
   loginFailed: {
     en: 'Sign in failed. Check your phone number and PIN.',
-    rw: 'Kwinjira byanze. Reba telefone n’umubare w’ibanga.',
+    fr: 'Connexion échouée. Vérifiez votre numéro et votre PIN.',
   },
   committeeLoginFailed: {
     en: 'Committee sign in failed. Check your phone number and PIN.',
-    rw: 'Kwinjira komite byanze. Reba telefone n’umubare w’ibanga.',
+    fr: 'Connexion comité échouée. Vérifiez votre numéro et votre PIN.',
   },
   generic: {
     en: 'Something went wrong. Please try again.',
-    rw: 'Hari ikintu kitagenze neza. Ongera ugerageze.',
+    fr: 'Une erreur s’est produite. Réessayez.',
   },
 } as const;
 
-function pick(language: Language, pair: { en: string; rw: string }): string {
-  return language === 'rw' ? pair.rw : pair.en;
+function pick(language: Language, pair: { en: string; fr: string }): string {
+  return language === 'fr' ? pair.fr : pair.en;
 }
 
 /** Prefer a clean bilingual server message when it looks user-facing. */
@@ -109,7 +109,7 @@ function fromServer(serverError: string | undefined, language: Language): string
   if (!serverError?.trim()) return null;
   const parts = serverError.split(' / ').map((part) => part.trim());
   if (parts.length >= 2) {
-    return language === 'rw' ? parts[parts.length - 1] : parts[0];
+    return language === 'fr' ? parts[parts.length - 1] : parts[0];
   }
   return serverError;
 }
@@ -150,6 +150,7 @@ export function getUserMessage(input: UserMessageInput): string {
   }
 
   if (status === 503 || status === 502 || status === 504) {
+    if (fromApi) return fromApi;
     return pick(language, messages.serverDown);
   }
 
@@ -180,7 +181,7 @@ export function getUserMessage(input: UserMessageInput): string {
 export function getApiConfigWarning(language: Language): string | null {
   if (!import.meta.env.PROD) return null;
   if (import.meta.env.VITE_API_URL || HAS_API_PROXY) return null;
-  return language === 'rw'
-    ? 'Terura ntiboneka — reba niba BACKEND_URL yashyizweho kuri Vercel.'
-    : 'Terura cannot reach the server — set BACKEND_URL on Vercel to your Render API URL, then redeploy.';
+  return language === 'fr'
+    ? 'Kumbuka est inaccessible — configurez BACKEND_URL sur Vercel.'
+    : 'Kumbuka cannot reach the server — set BACKEND_URL on Vercel to your Render API URL, then redeploy.';
 }

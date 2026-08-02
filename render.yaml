@@ -1,4 +1,4 @@
-# Render Blueprint — Terura backend API
+# Render Blueprint — Kumbuka backend API
 # Docs: https://render.com/docs/blueprint-spec
 #
 # Deploy: Render Dashboard → New → Blueprint → connect this repo
@@ -6,7 +6,7 @@
 
 services:
   - type: web
-    name: terura-api
+    name: kumbuka-api
     runtime: node
     region: frankfurt
     plan: free
@@ -18,7 +18,7 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
-      - key: MONGODB_URI
+      - key: COCKROACH_DB_URL
         sync: false
       - key: JWT_SECRET
         generateValue: true

@@ -1,7 +1,7 @@
 import { getUserMessage, type MessageContext } from './userMessages';
 import type { Language } from '../types';
 
-const TOKEN_KEY = 'terura_token';
+const TOKEN_KEY = 'kumbuka_token';
 
 const API_BASE = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, '') ?? '';
 

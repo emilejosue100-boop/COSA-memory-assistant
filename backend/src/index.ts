@@ -4,7 +4,21 @@ import { fileURLToPath } from 'url';
 import express from 'express';
 import cors from 'cors';
 import { connectDB } from './config/db.js';
+import {
+  ensureDefaultCooperative,
+  ensureDefaultExchangeRate,
+  ensureDemoAccounts,
+} from './bootstrap.js';
 import apiRoutes from './routes/api.js';
+import notesRoutes from './routes/notes.js';
+import assistantRoutes from './routes/assistant.js';
+import settingsRoutes from './routes/settings.js';
+import timelineRoutes from './routes/timeline.js';
+import loansRoutes from './routes/loans.js';
+import { ensureMemberTimelineView } from './services/timeline.js';
+import { ensureLoanOutcomeColumns, ensureRiskScanLogTable } from './services/schemaPatches.js';
+import riskScanRoutes from './routes/riskScan.js';
+import transcribeRoutes from './routes/transcribe.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
@@ -40,15 +54,28 @@ app.use(
 app.use(express.json({ limit: '10mb' }));
 
 app.get('/health', (_req, res) => {
-  res.json({ status: 'ok', service: 'terura-backend' });
+  res.json({ status: 'ok', service: 'kumbuka-backend' });
 });
 
 app.use('/api', apiRoutes);
+app.use('/api', notesRoutes);
+app.use('/api', assistantRoutes);
+app.use('/api', settingsRoutes);
+app.use('/api', timelineRoutes);
+app.use('/api', loansRoutes);
+app.use('/api', riskScanRoutes);
+app.use('/api', transcribeRoutes);
 
 async function start() {
   await connectDB();
+  await ensureLoanOutcomeColumns();
+  await ensureRiskScanLogTable();
+  await ensureMemberTimelineView();
+  await ensureDefaultCooperative();
+  await ensureDefaultExchangeRate();
+  await ensureDemoAccounts();
   app.listen(PORT, () => {
-    console.log(`Terura backend running on http://localhost:${PORT}`);
+    console.log(`Kumbuka backend running on http://localhost:${PORT}`);
   });
 }
 

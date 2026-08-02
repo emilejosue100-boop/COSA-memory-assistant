@@ -3,16 +3,16 @@ import type { Language } from '../types';
 
 interface EmptyStateAction {
   labelEn: string;
-  labelRw: string;
+  labelFr: string;
   onClick: () => void;
 }
 
 interface EmptyStateProps {
   icon: React.ReactNode;
   titleEn: string;
-  titleRw: string;
+  titleFr: string;
   descriptionEn: string;
-  descriptionRw: string;
+  descriptionFr: string;
   language: Language;
   action?: EmptyStateAction;
   compact?: boolean;
@@ -21,9 +21,9 @@ interface EmptyStateProps {
 export default function EmptyState({
   icon,
   titleEn,
-  titleRw,
+  titleFr,
   descriptionEn,
-  descriptionRw,
+  descriptionFr,
   language,
   action,
   compact = false,
@@ -42,17 +42,17 @@ export default function EmptyState({
         {icon}
       </div>
       <h3 className={`font-bold font-display text-oil-black ${compact ? 'text-sm' : 'text-base'}`}>
-        {language === 'en' ? titleEn : titleRw}
+        {language === 'en' ? titleEn : titleFr}
       </h3>
       <p className={`text-text-secondary mt-2 max-w-sm mx-auto leading-relaxed ${compact ? 'text-xs' : 'text-sm'}`}>
-        {language === 'en' ? descriptionEn : descriptionRw}
+        {language === 'en' ? descriptionEn : descriptionFr}
       </p>
       {action && (
         <button
           onClick={action.onClick}
           className="mt-5 h-11 px-5 bg-primary hover:bg-primary-hover text-white text-xs font-semibold rounded-xl shadow-subtle transition-all"
         >
-          {language === 'en' ? action.labelEn : action.labelRw}
+          {language === 'en' ? action.labelEn : action.labelFr}
         </button>
       )}
     </div>

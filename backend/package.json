@@ -1,7 +1,8 @@
 {
-  "name": "terura-backend",
+  "name": "kumbuka-backend",
   "private": true,
   "version": "1.0.0",
+  "license": "MIT",
   "type": "module",
   "engines": {
     "node": "20.x"
@@ -11,24 +12,36 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "seed": "tsx src/seed/seed.ts",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:push": "drizzle-kit push",
+    "db:setup": "tsx scripts/apply-schema.ts",
+    "db:timeline": "tsx scripts/apply-timeline-view.ts",
+    "seed:outcomes": "tsx scripts/seed-outcomes.ts",
     "lint": "tsc --noEmit"
   },
   "dependencies": {
+    "@aws-sdk/client-bedrock-runtime": "^3.1093.0",
     "@google/genai": "^2.4.0",
     "bcryptjs": "^3.0.2",
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
+    "drizzle-orm": "^0.45.2",
     "express": "^4.21.2",
     "firecrawl": "^4.3.0",
     "jsonwebtoken": "^9.0.2",
-    "mongoose": "^8.13.2"
+    "multer": "^2.2.0",
+    "pg": "^8.22.0"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
     "@types/cors": "^2.8.17",
     "@types/express": "^4.17.21",
     "@types/jsonwebtoken": "^9.0.9",
+    "@types/multer": "^2.2.0",
     "@types/node": "^22.14.0",
+    "@types/pg": "^8.20.0",
+    "drizzle-kit": "^0.31.10",
     "tsx": "^4.21.0",
     "typescript": "~5.8.2"
   }

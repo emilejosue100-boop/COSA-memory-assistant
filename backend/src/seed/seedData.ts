@@ -1,14 +1,19 @@
 import type { FinancialTip } from '../types/index.js';
 
-export const COOPERATIVE_NAME = 'Terura';
+export const COOPERATIVE_NAME = 'Kumbuka';
+
+export const demoAccounts = [
+  { name: 'Committee Admin', phone: '0788123456', pin: '1234', role: 'admin' as const },
+  { name: 'Demo Member', phone: '0788111111', pin: '1234', role: 'member' as const },
+];
 
 export const defaultWelcomeTip: FinancialTip = {
   id: 'tip-welcome',
-  titleEn: 'Welcome to Terura',
-  titleRw: 'Murakaza neza kuri Terura',
+  titleEn: 'Welcome to Kumbuka',
+  titleFr: 'Bienvenue sur Kumbuka',
   contentEn: 'Start saving regularly — even small amounts build trust and growth for your group.',
-  contentRw: 'Tangira kuzigama buhoro buhoro — n’amafaranga make agira uruhare mu kwiyongera kw’itsinda.',
+  contentFr: 'Commencez à épargner régulièrement — même de petits montants renforcent la confiance et la croissance du groupe.',
   whyEn: 'This tip appears until you make your first savings contribution.',
-  whyRw: 'Iyi nama igaragara kugeza igihe uzaba winjije umusanzu wawe wa mbere.',
+  whyFr: 'Ce conseil s’affiche jusqu’à votre premier versement d’épargne.',
   category: 'goal',
 };

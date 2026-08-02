@@ -1,7 +1,11 @@
-export type Language = 'en' | 'rw';
+export type Language = 'en' | 'fr';
 export type UserRole = 'member' | 'admin';
+export type CurrencyCode = 'USD' | 'CDF';
+export type LoanTermMonths = 6 | 12;
+export type LoanFinalOutcome = 'repaid_on_time' | 'repaid_late' | 'defaulted';
 
 export interface User {
+  id: string;
   name: string;
   phone: string;
   pin: string;
@@ -30,23 +34,32 @@ export interface LoanRequest {
   date: string;
   requestedAmount: number;
   reasonEn: string;
-  reasonRw: string;
+  reasonFr: string;
   status: 'pending' | 'approved' | 'declined';
   repaymentDueDate?: string;
   repaid?: boolean;
   repaidAmount?: number;
+  principal?: number;
+  termMonths?: LoanTermMonths;
+  interestRate?: number;
+  totalOwed?: number;
+  amountPaid?: number;
+  remainingBalance?: number;
+  currency?: CurrencyCode;
+  finalOutcome?: LoanFinalOutcome;
+  outcomeRecordedAt?: string;
 }
 
 export interface Opportunity {
   id: string;
   titleEn: string;
-  titleRw: string;
+  titleFr: string;
   source: string;
   returnRate: string;
   summaryEn: string;
-  summaryRw: string;
+  summaryFr: string;
   aiAnalysisEn?: string;
-  aiAnalysisRw?: string;
+  aiAnalysisFr?: string;
   isFlagged: boolean;
   foundAgo: string;
   category: string;
@@ -57,12 +70,19 @@ export interface Opportunity {
 export interface FinancialTip {
   id: string;
   titleEn: string;
-  titleRw: string;
+  titleFr: string;
   contentEn: string;
-  contentRw: string;
+  contentFr: string;
   whyEn: string;
-  whyRw: string;
+  whyFr: string;
   category: 'streak' | 'goal' | 'dip';
+}
+
+export interface ExchangeRatesState {
+  USD: number;
+  CDF: number;
+  updatedAt?: string;
+  updatedBy?: string;
 }
 
 export interface GlobalState {
@@ -76,6 +96,7 @@ export interface GlobalState {
   activeLoansCount: number;
   activeLoansAmount: number;
   language: Language;
+  exchangeRates: ExchangeRatesState;
 }
 
 export interface JwtPayload {

@@ -19,7 +19,7 @@ if (backendUrl) {
   console.log(`[vercel] API proxy enabled: /api/* -> ${backendUrl}/api/*`);
 } else {
   console.warn(
-    '[vercel] BACKEND_URL is not set. Add it in Vercel Environment Variables (your Render URL, e.g. https://terura-api.onrender.com).'
+    '[vercel] BACKEND_URL is not set. Add it in Vercel Environment Variables (your Render URL, e.g. https://kumbuka-api.onrender.com).'
   );
 }
 

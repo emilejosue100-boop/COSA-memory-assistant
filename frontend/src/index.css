@@ -43,3 +43,67 @@ body {
 h1, h2, h3, h4, .font-display {
   font-family: var(--font-display);
 }
+
+.prose-answer h1,
+.prose-answer h2,
+.prose-answer h3 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 15px;
+  margin: 8px 0 4px 0;
+  color: var(--color-primary);
+}
+
+.prose-answer strong {
+  font-weight: 600;
+  color: var(--color-primary);
+}
+
+.prose-answer ul,
+.prose-answer ol {
+  padding-left: 18px;
+  margin: 6px 0;
+}
+
+.prose-answer li {
+  margin-bottom: 4px;
+}
+
+.prose-answer p {
+  margin: 6px 0;
+}
+
+.prose-answer p:first-child {
+  margin-top: 0;
+}
+
+.prose-answer p:last-child {
+  margin-bottom: 0;
+}
+
+.prose-answer table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 8px 0;
+  font-size: 13px;
+}
+
+.prose-answer th,
+.prose-answer td {
+  border: 1px solid var(--color-border-subtle);
+  padding: 6px 10px;
+  text-align: left;
+}
+
+.prose-answer th {
+  background: color-mix(in srgb, var(--color-accent) 22%, var(--color-background));
+  font-family: var(--font-display);
+  font-weight: 600;
+  color: var(--color-primary);
+}
+
+.prose-answer hr {
+  border: none;
+  border-top: 1px solid var(--color-border-subtle);
+  margin: 12px 0;
+}

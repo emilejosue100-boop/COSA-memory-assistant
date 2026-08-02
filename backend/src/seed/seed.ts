@@ -1,43 +1,47 @@
 import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { connectDB } from '../config/db.js';
+import { ensureDefaultCooperative, ensureDemoAccounts, getDemoAccountCredentials } from '../bootstrap.js';
+import { db } from '../db/index.js';
 import {
-  Cooperative,
-  User,
-  Transaction,
-  LoanRequest,
-  Opportunity,
-} from '../models/index.js';
-import { COOPERATIVE_NAME, defaultWelcomeTip } from './seedData.js';
+  cooperatives,
+  members,
+  transactions,
+  loanRequests,
+  opportunities,
+  notes,
+} from '../db/schema.js';
 
-dotenv.config();
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 
 async function seed() {
   await connectDB();
 
-  console.log('Resetting database to empty cooperative...');
-  await Promise.all([
-    Cooperative.deleteMany({}),
-    User.deleteMany({}),
-    Transaction.deleteMany({}),
-    LoanRequest.deleteMany({}),
-    Opportunity.deleteMany({}),
-  ]);
+  console.log('Resetting CockroachDB to empty cooperative...');
+  await db.delete(notes);
+  await db.delete(opportunities);
+  await db.delete(loanRequests);
+  await db.delete(transactions);
+  await db.delete(members);
+  await db.delete(cooperatives);
 
-  await Cooperative.create({
-    name: COOPERATIVE_NAME,
-    groupSavings: 0,
-    activeLoansCount: 0,
-    activeLoansAmount: 0,
-    defaultLanguage: 'en',
-    currentTip: defaultWelcomeTip,
-  });
+  await ensureDefaultCooperative();
+  await ensureDemoAccounts();
 
-  console.log(`Created cooperative: ${COOPERATIVE_NAME}`);
-  console.log('\nSeed complete — database is empty and ready for real data.');
-  console.log('Next steps:');
-  console.log('  1. Set ADMIN_PHONE in backend/.env to your committee phone number');
-  console.log('  2. npm run dev');
-  console.log('  3. Register via login (first admin phone becomes committee) or use Admin → Register New Member');
+  const credentials = getDemoAccountCredentials();
+  const admin = credentials.find((c) => c.role === 'admin');
+  const member = credentials.find((c) => c.role === 'member');
+
+  console.log('\nSeed complete — demo accounts ready.');
+  console.log('Demo logins:');
+  if (member) {
+    console.log(`  Member  — Sign In tab:   ${member.phone} / PIN ${member.pin}`);
+  }
+  if (admin) {
+    console.log(`  Admin   — Committee tab: ${admin.phone} / PIN ${admin.pin}`);
+  }
 
   process.exit(0);
 }

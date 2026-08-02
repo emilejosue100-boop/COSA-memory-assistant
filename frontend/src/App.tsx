@@ -10,7 +10,10 @@ import AdminDashboard from './components/AdminDashboard';
 import MembersList from './components/MembersList';
 import ApprovalsQueue from './components/ApprovalsQueue';
 import OpportunityFeed from './components/OpportunityFeed';
+import MemoryAssistant from './components/MemoryAssistant';
 import ProfileSettings from './components/ProfileSettings';
+import { ExchangeRateProvider } from './context/ExchangeRateContext';
+import { DEFAULT_CDF_RATE } from './lib/exchangeRates';
 
 import { 
   Landmark, 
@@ -23,7 +26,8 @@ import {
   Globe, 
   Menu, 
   X, 
-  Hourglass
+  Hourglass,
+  Brain
 } from 'lucide-react';
 
 export default function App() {
@@ -32,10 +36,10 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('home');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [onboardingCompleted, setOnboardingCompleted] = useState(() => {
-    return localStorage.getItem('terura_onboarding_done') === 'true';
+    return localStorage.getItem('kumbuka_onboarding_done') === 'true';
   });
   const [darkMode, setDarkMode] = useState(() => {
-    return localStorage.getItem('terura_theme') === 'dark';
+    return localStorage.getItem('kumbuka_theme') === 'dark';
   });
   const [bootstrapError, setBootstrapError] = useState<string | null>(null);
 
@@ -94,14 +98,14 @@ export default function App() {
 
   const handleOnboardingComplete = () => {
     setOnboardingCompleted(true);
-    localStorage.setItem('terura_onboarding_done', 'true');
+    localStorage.setItem('kumbuka_onboarding_done', 'true');
   };
 
   const handleLogout = () => {
     clearToken();
     setState(prev => prev ? { ...prev, currentUser: null } : null);
     setOnboardingCompleted(false);
-    localStorage.removeItem('terura_onboarding_done');
+    localStorage.removeItem('kumbuka_onboarding_done');
   };
 
   if (loading) {
@@ -109,7 +113,7 @@ export default function App() {
       <div className="min-h-screen w-full bg-background flex flex-col items-center justify-center">
         <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
         <p className="text-xs font-bold text-text-secondary mt-4 uppercase tracking-wider">
-          Terura loading...
+          Kumbuka loading...
         </p>
       </div>
     );
@@ -172,6 +176,8 @@ export default function App() {
               onStateChange={setState}
             />
           );
+        case 'memory-assistant':
+          return <MemoryAssistant state={state} language={language} />;
         case 'profile':
           return (
             <ProfileSettings 
@@ -183,7 +189,7 @@ export default function App() {
               darkMode={darkMode}
               onToggleDarkMode={(val) => {
                 setDarkMode(val);
-                localStorage.setItem('terura_theme', val ? 'dark' : 'light');
+                localStorage.setItem('kumbuka_theme', val ? 'dark' : 'light');
               }}
             />
           );
@@ -223,7 +229,7 @@ export default function App() {
               darkMode={darkMode}
               onToggleDarkMode={(val) => {
                 setDarkMode(val);
-                localStorage.setItem('terura_theme', val ? 'dark' : 'light');
+                localStorage.setItem('kumbuka_theme', val ? 'dark' : 'light');
               }}
             />
           );
@@ -235,24 +241,26 @@ export default function App() {
 
   // Navigation configurations
   const memberNavItems = [
-    { id: 'home', labelEn: 'Home', labelRw: 'Ahabanza', icon: <Landmark size={20} /> },
-    { id: 'savings', labelEn: 'Savings', labelRw: 'Ubwizigame', icon: <Wallet size={20} /> },
-    { id: 'loans', labelEn: 'Loans', labelRw: 'Inguzanyo', icon: <ArrowDownRight size={20} /> },
-    { id: 'profile', labelEn: 'Profile', labelRw: 'Imyirondoro', icon: <Settings size={20} /> },
+    { id: 'home', labelEn: 'Home', labelFr: 'Accueil', icon: <Landmark size={20} /> },
+    { id: 'savings', labelEn: 'Savings', labelFr: 'Épargne', icon: <Wallet size={20} /> },
+    { id: 'loans', labelEn: 'Loans', labelFr: 'Prêts', icon: <ArrowDownRight size={20} /> },
+    { id: 'profile', labelEn: 'Profile', labelFr: 'Profil', icon: <Settings size={20} /> },
   ];
 
   const adminNavItems = [
-    { id: 'home', labelEn: 'Admin Dashboard', labelRw: 'Komite', icon: <Landmark size={20} /> },
-    { id: 'savings', labelEn: 'Group Savings', labelRw: 'Ikigega cyose', icon: <Wallet size={20} /> },
-    { id: 'members', labelEn: 'Members', labelRw: 'Abanyamuryango', icon: <Users size={20} /> },
-    { id: 'approvals', labelEn: 'Approvals', labelRw: 'Ubusabe buhari', icon: <Hourglass size={20} /> },
-    { id: 'opportunities', labelEn: 'Opportunities', labelRw: 'Amahirwe', icon: <Layers size={20} /> },
-    { id: 'profile', labelEn: 'Settings', labelRw: 'Ihitamo', icon: <Settings size={20} /> },
+    { id: 'home', labelEn: 'Admin Dashboard', labelFr: 'Tableau de bord', icon: <Landmark size={20} /> },
+    { id: 'savings', labelEn: 'Group Savings', labelFr: 'Épargne collective', icon: <Wallet size={20} /> },
+    { id: 'members', labelEn: 'Members', labelFr: 'Membres', icon: <Users size={20} /> },
+    { id: 'approvals', labelEn: 'Approvals', labelFr: 'Approbations', icon: <Hourglass size={20} /> },
+    { id: 'opportunities', labelEn: 'Opportunities', labelFr: 'Opportunités', icon: <Layers size={20} /> },
+    { id: 'memory-assistant', labelEn: 'Memory Assistant', labelFr: 'Assistant mémoire', icon: <Brain size={20} /> },
+    { id: 'profile', labelEn: 'Settings', labelFr: 'Paramètres', icon: <Settings size={20} /> },
   ];
 
   const activeNavItems = currentUser.role === 'admin' ? adminNavItems : memberNavItems;
 
   return (
+    <ExchangeRateProvider cdfRate={state.exchangeRates?.CDF ?? DEFAULT_CDF_RATE}>
     <div className="min-h-screen bg-background text-oil-black flex flex-col md:flex-row font-sans">
       
       {/* Desktop Left Sidebar Navigation */}
@@ -264,7 +272,7 @@ export default function App() {
               <Landmark size={20} />
             </div>
             <div>
-              <span className="text-xl font-bold font-display tracking-tight text-oil-black">Terura</span>
+              <span className="text-xl font-bold font-display tracking-tight text-oil-black">Kumbuka</span>
               <span className="block text-[10px] text-text-secondary font-semibold uppercase tracking-widest mt-0.5">Bilingual Core</span>
             </div>
           </div>
@@ -282,7 +290,7 @@ export default function App() {
                 }`}
               >
                 {item.icon}
-                <span>{language === 'en' ? item.labelEn : item.labelRw}</span>
+                <span>{language === 'en' ? item.labelEn : item.labelFr}</span>
               </button>
             ))}
           </nav>
@@ -316,13 +324,13 @@ export default function App() {
                 EN
               </button>
               <button
-                onClick={() => handleLanguageToggle('rw')}
+                onClick={() => handleLanguageToggle('fr')}
                 className={`px-1.5 py-0.5 text-[9px] font-bold rounded-full transition-all ${
-                  language === 'rw' ? 'bg-primary text-white shadow-subtle' : 'text-text-secondary hover:text-oil-black'
+                  language === 'fr' ? 'bg-primary text-white shadow-subtle' : 'text-text-secondary hover:text-oil-black'
                 }`}
-                title="Kinyarwanda"
+                title="Français"
               >
-                RW
+                FR
               </button>
             </div>
           </div>
@@ -332,7 +340,7 @@ export default function App() {
             className="h-10 border border-red-100 hover:bg-red-50 text-error text-xs font-semibold rounded-xl flex items-center justify-center gap-2 transition-all w-full"
           >
             <LogOut size={14} />
-            <span>{language === 'en' ? 'Log Out' : 'Sohoka'}</span>
+            <span>{language === 'en' ? 'Log Out' : 'Déconnexion'}</span>
           </button>
         </div>
       </aside>
@@ -343,7 +351,7 @@ export default function App() {
           <div className="w-8 h-8 bg-primary text-white rounded-lg flex items-center justify-center shadow-subtle">
             <Landmark size={16} />
           </div>
-          <span className="font-bold font-display tracking-tight text-oil-black text-lg">Terura</span>
+          <span className="font-bold font-display tracking-tight text-oil-black text-lg">Kumbuka</span>
         </div>
 
         <div className="flex items-center gap-2">
@@ -356,10 +364,10 @@ export default function App() {
               EN
             </button>
             <button
-              onClick={() => handleLanguageToggle('rw')}
-              className={`px-2.5 py-1 text-[10px] font-bold rounded-full ${language === 'rw' ? 'bg-primary text-white' : 'text-text-secondary'}`}
+              onClick={() => handleLanguageToggle('fr')}
+              className={`px-2.5 py-1 text-[10px] font-bold rounded-full ${language === 'fr' ? 'bg-primary text-white' : 'text-text-secondary'}`}
             >
-              RW
+              FR
             </button>
           </div>
 
@@ -392,12 +400,13 @@ export default function App() {
               {item.icon}
             </div>
             <span className="text-[9px] font-bold mt-0.5 max-w-[64px] truncate">
-              {language === 'en' ? item.labelEn : item.labelRw}
+              {language === 'en' ? item.labelEn : item.labelFr}
             </span>
           </button>
         ))}
       </nav>
 
     </div>
+    </ExchangeRateProvider>
   );
 }

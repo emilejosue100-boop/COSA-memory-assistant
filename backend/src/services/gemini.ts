@@ -16,7 +16,7 @@ export async function generateFinancialTip(
 ): Promise<FinancialTip> {
   try {
     const prompt = `Generate a supportive financial tip for a rural or semi-urban informal savings cooperative member in Rwanda (Ikimina group) named ${memberName}.
-    The member has a personal savings balance of ${savingsBalance} RWF in the cooperative.
+    The member has a personal savings balance of ${savingsBalance} USD in the cooperative.
     Their transaction history is:
     ${txSummary || 'No recent contributions'}
 
@@ -24,14 +24,14 @@ export async function generateFinancialTip(
     {
       "id": "tip-dynamic",
       "titleEn": "string (Short header, e.g. Savings Streak)",
-      "titleRw": "string (Kinyarwanda translation of the header)",
+      "titleFr": "string (French translation of the header)",
       "contentEn": "string (Actionable financial encouragement in English)",
-      "contentRw": "string (Actionable financial encouragement in Kinyarwanda)",
-      "whyEn": "string (Explanation why they see this based on their balance of ${savingsBalance} RWF and transactions)",
-      "whyRw": "string (Kinyarwanda translation of why they see this)",
+      "contentFr": "string (Actionable financial encouragement in French)",
+      "whyEn": "string (Explanation why they see this based on their balance of ${savingsBalance} USD and transactions)",
+      "whyFr": "string (French translation of why they see this)",
       "category": "streak" | "goal" | "dip"
     }
-    The tip should be friendly, inspiring, culturally relevant (mentioning community, mutual assistance, or small micro-enterprises), and grammatically perfect in both English and Kinyarwanda. Do not include markdown code block formatting or backticks outside the raw JSON string.`;
+    The tip should be friendly, inspiring, culturally relevant (mentioning community, mutual assistance, or small micro-enterprises), and grammatically perfect in both English and French. Do not include markdown code block formatting or backticks outside the raw JSON string.`;
 
     return await generateGeminiJson<FinancialTip>(prompt, 'generate-tip');
   } catch (error) {
@@ -40,21 +40,21 @@ export async function generateFinancialTip(
       {
         id: 'tip-fallback-1',
         titleEn: 'Smart Loan Management',
-        titleRw: 'Gucunga neza Inguzanyo',
+        titleFr: 'Gestion intelligente des prêts',
         contentEn: 'Borrow only what can generate returns for your small business kiosk or farm.',
-        contentRw: 'Gura ibikenerwa gusa bishobora kwungura ubucuruzi bwawe cyangwa isambu yawe.',
+        contentFr: 'Empruntez seulement ce qui peut générer des revenus pour votre commerce ou votre ferme.',
         whyEn: 'Based on cooperative borrowing best practices to ensure smooth repayment and zero stress.',
-        whyRw: 'Bishingiye ku muco mwiza wo kwaka inguzanyo mu matsinda hagamijwe kwishyura neza nta gihunga.',
+        whyFr: 'Basé sur les bonnes pratiques de la coopérative pour un remboursement serein.',
         category: 'goal',
       },
       {
         id: 'tip-fallback-2',
         titleEn: 'Steady Accumulation',
-        titleRw: 'Kwizigama Ubudahuga',
-        contentEn: 'Adding even 5,000 RWF every week builds a foundation of security for your family.',
-        contentRw: "Gushyiraho ndetse n'amafaranga 5,000 RWF buri cyumweru byubaka urufatiro rw'umutekano w'umuryango wawe.",
+        titleFr: 'Épargne régulière',
+        contentEn: 'Adding even a small amount every week builds a foundation of security for your family.',
+        contentFr: 'Mettre de côté même une petite somme chaque semaine renforce la sécurité de votre famille.',
         whyEn: 'Based on your recent savings habit showing consistent cooperative engagement.',
-        whyRw: 'Bishingiye ku muco wawe wo kuzigama uhoraho ufatanyije n\'abandi banyamuryango.',
+        whyFr: 'Basé sur votre habitude d’épargne récente au sein de la coopérative.',
         category: 'streak',
       },
     ];
@@ -82,7 +82,7 @@ Scraped content:
 ${scrapedContext}`
       : `No live scraped data is available. Generate realistic opportunities based on well-known Rwandan financial institutions (BNR treasury products, RSE, Bank of Kigali, SACCOs, agricultural cooperatives). Set sourceUrl to an empty string if no URL is known.`;
 
-    const prompt = `You are curating investment options for a Rwandan savings cooperative with ${groupSavings} RWF idle funds.
+    const prompt = `You are curating investment options for a Rwandan savings cooperative with ${groupSavings} USD idle funds.
 ${dataInstructions}
 
 Return 3-5 opportunities ranked by safety for a community-based informal savings group (Ikimina).
@@ -90,12 +90,12 @@ Return the response as a JSON array matching this exact TypeScript schema:
 [{
   "id": "string (unique id like opp-123)",
   "titleEn": "string",
-  "titleRw": "string (Kinyarwanda translation)",
+  "titleFr": "string (French translation)",
   "source": "string (institution or provider name)",
   "sourceUrl": "string (URL from scraped content, or empty string)",
   "returnRate": "string (e.g. 10.5% p.a.)",
   "summaryEn": "string (2-3 sentences)",
-  "summaryRw": "string (Kinyarwanda explanation)",
+  "summaryFr": "string (French explanation)",
   "category": "string (e.g. SACCO, Agriculture, Bonds)",
   "foundAgo": "string (e.g. Found just now)"
 }]
@@ -137,22 +137,22 @@ Avoid code blocks or backticks.`;
 export async function analyzeOpportunity(
   opp: Opportunity,
   groupSavings: number
-): Promise<{ aiAnalysisEn: string; aiAnalysisRw: string }> {
+): Promise<{ aiAnalysisEn: string; aiAnalysisFr: string }> {
   try {
     const prompt = `Perform a cooperative-focused financial risk and growth analysis on the following investment opportunity:
-    Title: ${opp.titleEn} (${opp.titleRw})
+    Title: ${opp.titleEn} (${opp.titleFr})
     Source: ${opp.source}
     Yield: ${opp.returnRate}
     Description: ${opp.summaryEn}
 
-    Analyze its safety, suitability for a rural informal group (Ikimina) with collective savings of ${groupSavings} RWF, and ease of liquidation (withdrawal).
-    Provide a professional, clear response in both English and Kinyarwanda in JSON format matching this exact schema:
+    Analyze its safety, suitability for a rural informal group (Ikimina) with collective savings of ${groupSavings} USD, and ease of liquidation (withdrawal).
+    Provide a professional, clear response in both English and French in JSON format matching this exact schema:
     {
       "aiAnalysisEn": "string (Actionable 3-sentence summary of security, liquidity, and recommendation)",
-      "aiAnalysisRw": "string (Actionable Kinyarwanda equivalent)"
+      "aiAnalysisFr": "string (Actionable French equivalent)"
     }`;
 
-    return await generateGeminiJson<{ aiAnalysisEn: string; aiAnalysisRw: string }>(
+    return await generateGeminiJson<{ aiAnalysisEn: string; aiAnalysisFr: string }>(
       prompt,
       'analyze-opportunity'
     );
@@ -161,8 +161,8 @@ export async function analyzeOpportunity(
     return {
       aiAnalysisEn:
         'Steady returns with minimal regulatory risks. Ideal asset lock-in for 6-12 months for idle cooperative reserves.',
-      aiAnalysisRw:
-        "Inyungu ihamye ifite ibyago bike bya leta. Ni nziza cyane mu kubika amafaranga y'agateganyo y'itsinda mu mezi 6 kugeza kuri 12.",
+      aiAnalysisFr:
+        'Rendements stables avec des risques réglementaires minimes. Idéal pour bloquer les réserves de la coopérative sur 6 à 12 mois.',
     };
   }
 }

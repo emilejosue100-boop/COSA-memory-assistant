@@ -1,29 +1,19 @@
-import type { IUser } from '../models/index.js';
-import type { User, GlobalState, Transaction, LoanRequest, Opportunity } from '../types/index.js';
+import { asc, count, desc, eq } from 'drizzle-orm';
+import { db } from '../db/index.js';
 import {
-  Cooperative,
-  User as UserModel,
-  Transaction as TransactionModel,
-  LoanRequest as LoanRequestModel,
-  Opportunity as OpportunityModel,
-} from '../models/index.js';
-
-export function toPublicUser(user: IUser): User {
-  return {
-    name: user.name,
-    phone: user.phone,
-    pin: '',
-    role: user.role,
-    cooperativeName: user.cooperativeName,
-    savingsBalance: user.savingsBalance,
-    profileImage: user.profileImage,
-    status: user.status,
-    joinDate: user.joinDate,
-  };
-}
+  cooperatives,
+  members,
+  transactions,
+  loanRequests,
+  opportunities,
+} from '../db/schema.js';
+import type { GlobalState, Transaction, LoanRequest, Opportunity } from '../types/index.js';
+import { getExchangeRatesForState } from '../services/currency.js';
+import { mapLoanRequest } from './mapLoanRequest.js';
+import { toPublicUser } from './memberMapper.js';
 
 export async function getDefaultCooperative() {
-  const coop = await Cooperative.findOne();
+  const coop = await db.query.cooperatives.findFirst();
   if (!coop) {
     throw new Error('No cooperative found. Run npm run seed first.');
   }
@@ -33,16 +23,30 @@ export async function getDefaultCooperative() {
 export async function buildGlobalState(currentUserId?: string): Promise<GlobalState> {
   const coop = await getDefaultCooperative();
 
-  const [users, transactions, loanRequests, opportunities] = await Promise.all([
-    UserModel.find({ cooperativeId: coop._id }).sort({ joinDate: 1 }),
-    TransactionModel.find({ cooperativeId: coop._id }).sort({ date: -1, createdAt: -1 }),
-    LoanRequestModel.find({ cooperativeId: coop._id }).sort({ date: -1, createdAt: -1 }),
-    OpportunityModel.find({ cooperativeId: coop._id }).sort({ createdAt: -1 }),
+  const [memberRows, transactionRows, loanRows, opportunityRows, exchangeRateInfo] =
+    await Promise.all([
+    db.query.members.findMany({
+      where: eq(members.cooperativeId, coop.id),
+      orderBy: asc(members.joinDate),
+    }),
+    db.query.transactions.findMany({
+      where: eq(transactions.cooperativeId, coop.id),
+      orderBy: [desc(transactions.date), desc(transactions.createdAt)],
+    }),
+    db.query.loanRequests.findMany({
+      where: eq(loanRequests.cooperativeId, coop.id),
+      orderBy: [desc(loanRequests.date), desc(loanRequests.createdAt)],
+    }),
+    db.query.opportunities.findMany({
+      where: eq(opportunities.cooperativeId, coop.id),
+      orderBy: desc(opportunities.createdAt),
+    }),
+    getExchangeRatesForState(),
   ]);
 
-  let currentUser: User | null = null;
+  let currentUser = null;
   if (currentUserId) {
-    const userDoc = users.find((u) => u._id.toString() === currentUserId);
+    const userDoc = memberRows.find((u) => u.id === currentUserId);
     if (userDoc) {
       currentUser = toPublicUser(userDoc);
     }
@@ -50,10 +54,10 @@ export async function buildGlobalState(currentUserId?: string): Promise<GlobalSt
 
   const language =
     (currentUserId
-      ? users.find((u) => u._id.toString() === currentUserId)?.language
+      ? memberRows.find((u) => u.id === currentUserId)?.language
       : undefined) ?? coop.defaultLanguage;
 
-  const mappedTransactions: Transaction[] = transactions.map((tx) => ({
+  const mappedTransactions: Transaction[] = transactionRows.map((tx) => ({
     id: tx.externalId,
     date: tx.date,
     type: tx.type,
@@ -63,39 +67,27 @@ export async function buildGlobalState(currentUserId?: string): Promise<GlobalSt
     status: tx.status,
   }));
 
-  const mappedLoans: LoanRequest[] = loanRequests.map((loan) => ({
-    id: loan.externalId,
-    memberName: loan.memberName,
-    memberImage: loan.memberImage,
-    date: loan.date,
-    requestedAmount: loan.requestedAmount,
-    reasonEn: loan.reasonEn,
-    reasonRw: loan.reasonRw,
-    status: loan.status,
-    repaymentDueDate: loan.repaymentDueDate,
-    repaid: loan.repaid,
-    repaidAmount: loan.repaidAmount,
-  }));
+  const mappedLoans: LoanRequest[] = loanRows.map(mapLoanRequest);
 
-  const mappedOpportunities: Opportunity[] = opportunities.map((opp) => ({
+  const mappedOpportunities: Opportunity[] = opportunityRows.map((opp) => ({
     id: opp.externalId,
     titleEn: opp.titleEn,
-    titleRw: opp.titleRw,
+    titleFr: opp.titleFr,
     source: opp.source,
     returnRate: opp.returnRate,
     summaryEn: opp.summaryEn,
-    summaryRw: opp.summaryRw,
-    aiAnalysisEn: opp.aiAnalysisEn,
-    aiAnalysisRw: opp.aiAnalysisRw,
+    summaryFr: opp.summaryFr,
+    aiAnalysisEn: opp.aiAnalysisEn ?? undefined,
+    aiAnalysisFr: opp.aiAnalysisFr ?? undefined,
     isFlagged: opp.isFlagged,
     foundAgo: opp.foundAgo,
     category: opp.category,
-    sourceUrl: opp.sourceUrl,
-    image: opp.image,
+    sourceUrl: opp.sourceUrl ?? undefined,
+    image: opp.image ?? undefined,
   }));
 
   return {
-    users: users.map(toPublicUser),
+    users: memberRows.map(toPublicUser),
     currentUser,
     transactions: mappedTransactions,
     loanRequests: mappedLoans,
@@ -105,5 +97,14 @@ export async function buildGlobalState(currentUserId?: string): Promise<GlobalSt
     activeLoansCount: coop.activeLoansCount,
     activeLoansAmount: coop.activeLoansAmount,
     language,
+    exchangeRates: exchangeRateInfo,
   };
+}
+
+export async function countAdmins(): Promise<number> {
+  const [result] = await db
+    .select({ count: count() })
+    .from(members)
+    .where(eq(members.role, 'admin'));
+  return result?.count ?? 0;
 }

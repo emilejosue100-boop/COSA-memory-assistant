@@ -1,8 +1,10 @@
 import React, { useState, useRef } from 'react';
 import { GlobalState, Language } from '../types';
-import { apiPost, clearToken } from '../lib/api';
+import { apiGet, apiPost, clearToken } from '../lib/api';
+import { formatCurrency } from '../lib/currency';
+import { useCurrency } from '../hooks/useCurrency';
 import UserNotice from './UserNotice';
-import { LogOut, Globe, Camera, Upload, Heart, Moon, Sun, User } from 'lucide-react';
+import { LogOut, Globe, Camera, Upload, Heart, Moon, Sun, User, Coins } from 'lucide-react';
 
 interface ProfileSettingsProps {
   state: GlobalState;
@@ -24,10 +26,64 @@ export default function ProfileSettings({
   onToggleDarkMode
 }: ProfileSettingsProps) {
   const { currentUser } = state;
+  const { currency, cdfRate } = useCurrency();
   const [loading, setLoading] = useState(false);
+  const [exchangeRateInput, setExchangeRateInput] = useState('');
+  const [exchangeRateSaving, setExchangeRateSaving] = useState(false);
+  const [exchangeRateSuccess, setExchangeRateSuccess] = useState('');
+  const [exchangeRateError, setExchangeRateError] = useState<string | null>(null);
   const [showImageOptions, setShowImageOptions] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  React.useEffect(() => {
+    if (currentUser?.role === 'admin' && state.exchangeRates?.CDF) {
+      setExchangeRateInput(String(state.exchangeRates.CDF));
+    }
+  }, [currentUser?.role, state.exchangeRates?.CDF]);
+
+  const handleSaveExchangeRate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const parsed = Number(exchangeRateInput);
+    if (!exchangeRateInput || Number.isNaN(parsed) || parsed <= 0) {
+      setExchangeRateError(
+        language === 'en'
+          ? 'Enter a positive number for the CDF rate.'
+          : 'Entrez un nombre positif pour le taux CDF.'
+      );
+      return;
+    }
+
+    setExchangeRateSaving(true);
+    setExchangeRateError(null);
+    setExchangeRateSuccess('');
+    try {
+      const { ok, error } = await apiPost(
+        '/api/exchange-rates',
+        { currency: 'CDF', rate: parsed },
+        true,
+        language
+      );
+      if (!ok) {
+        setExchangeRateError(error || null);
+        return;
+      }
+
+      const { ok: stateOk, data } = await apiGet<GlobalState>('/api/state', true, language);
+      if (stateOk) {
+        onStateChange(data);
+      }
+
+      setExchangeRateSuccess(
+        language === 'en' ? 'Exchange rate updated.' : 'Taux de change mis à jour.'
+      );
+      setTimeout(() => setExchangeRateSuccess(''), 3000);
+    } catch {
+      setExchangeRateError(null);
+    } finally {
+      setExchangeRateSaving(false);
+    }
+  };
 
   const handleLogoutClick = async () => {
     setLoading(true);
@@ -49,7 +105,7 @@ export default function ProfileSettings({
     if (!file) return;
 
     if (file.size > 2 * 1024 * 1024) {
-      setUploadError(language === 'en' ? 'Image must be less than 2MB.' : 'Ifoto igomba kuba munsi ya 2MB.');
+      setUploadError(language === 'en' ? 'Image must be less than 2MB.' : 'L\'image doit faire moins de 2 Mo.');
       return;
     }
 
@@ -85,10 +141,10 @@ export default function ProfileSettings({
     <div className="space-y-6 animate-fade-in">
       <div>
         <h2 className="text-xl font-bold font-display text-oil-black tracking-tight">
-          {language === 'en' ? 'Profile & Configuration' : 'Imyirondoro n’Ihitamo'}
+          {language === 'en' ? 'Profile & Configuration' : 'Profil et configuration'}
         </h2>
         <p className="text-xs text-text-secondary">
-          {language === 'en' ? 'Configure preferences and customize your profile' : 'Hindura ururimi, imyirondoro n’andi mahitamo'}
+          {language === 'en' ? 'Configure preferences and customize your profile' : 'Configurez vos préférences et personnalisez votre profil'}
         </p>
       </div>
 
@@ -104,7 +160,7 @@ export default function ProfileSettings({
             <button
               onClick={() => setShowImageOptions(!showImageOptions)}
               className="absolute bottom-4 right-0 bg-primary hover:bg-primary-hover text-white p-2 rounded-full shadow-subtle border-2 border-surface transition-all flex items-center justify-center cursor-pointer"
-              title={language === 'en' ? "Change Profile Photo" : "Hindura Ifoto"}
+              title={language === 'en' ? "Change Profile Photo" : "Changer la photo"}
             >
               <Camera size={14} className="flex-shrink-0" />
             </button>
@@ -117,8 +173,8 @@ export default function ProfileSettings({
             <User size={12} className="flex-shrink-0" />
             <span>
               {currentUser?.role === 'admin' 
-                ? (language === 'en' ? 'Committee Member' : 'Komite y’Ikimina') 
-                : (language === 'en' ? 'Saving Member' : 'Umunyamuryango wo Kuzigama')}
+                ? (language === 'en' ? 'Committee Member' : 'Membre du comité') 
+                : (language === 'en' ? 'Saving Member' : 'Membre épargnant')}
             </span>
           </div>
 
@@ -127,13 +183,13 @@ export default function ProfileSettings({
             <div className="w-full mt-6 p-4 bg-background border border-border-subtle rounded-xl animate-fade-in space-y-4">
               <div className="flex justify-between items-center">
                 <span className="text-xs font-bold text-oil-black">
-                  {language === 'en' ? 'Upload Profile Photo' : 'Shyiraho ifoto yawe'}
+                  {language === 'en' ? 'Upload Profile Photo' : 'Télécharger une photo'}
                 </span>
                 <button 
                   onClick={() => setShowImageOptions(false)}
                   className="text-[10px] text-text-secondary hover:text-oil-black font-bold uppercase"
                 >
-                  {language === 'en' ? 'Close' : 'Funga'}
+                  {language === 'en' ? 'Close' : 'Fermer'}
                 </button>
               </div>
 
@@ -154,7 +210,7 @@ export default function ProfileSettings({
                   className="w-full h-11 border-2 border-dashed border-border-subtle hover:border-primary rounded-xl text-xs font-semibold text-text-secondary hover:text-oil-black transition-all flex items-center justify-center gap-2 cursor-pointer bg-surface"
                 >
                   <Upload size={14} className="flex-shrink-0" />
-                  <span>{language === 'en' ? 'Upload Custom Photo' : 'Shyiraho indi foto'}</span>
+                  <span>{language === 'en' ? 'Upload Custom Photo' : 'Télécharger une photo'}</span>
                 </button>
               </div>
             </div>
@@ -164,17 +220,17 @@ export default function ProfileSettings({
 
           <div className="w-full text-left space-y-3.5">
             <div className="flex justify-between text-xs font-semibold">
-              <span className="text-text-secondary">{language === 'en' ? 'Cooperative' : 'Ikimina'}:</span>
+              <span className="text-text-secondary">{language === 'en' ? 'Cooperative' : 'Coopérative'}:</span>
               <span className="text-oil-black truncate max-w-[180px] text-right">{currentUser?.cooperativeName}</span>
             </div>
             <div className="flex justify-between text-xs font-semibold">
-              <span className="text-text-secondary">{language === 'en' ? 'Join Date' : 'Kwandikwa'}:</span>
+              <span className="text-text-secondary">{language === 'en' ? 'Join Date' : 'Date d\'adhésion'}:</span>
               <span className="text-oil-black">{currentUser?.joinDate}</span>
             </div>
             <div className="flex justify-between text-xs font-semibold">
-              <span className="text-text-secondary">{language === 'en' ? 'Personal Balance' : 'Ubwizigame'}:</span>
+              <span className="text-text-secondary">{language === 'en' ? 'Personal Balance' : 'Solde personnel'}:</span>
               <span className="text-emerald-700">
-                {new Intl.NumberFormat('en-US').format(currentUser?.savingsBalance || 0)} RWF
+                {formatCurrency(currentUser?.savingsBalance || 0, currency, cdfRate)}
               </span>
             </div>
           </div>
@@ -182,6 +238,65 @@ export default function ProfileSettings({
 
         {/* Right Side: Options & Role Switchers */}
         <div className="md:col-span-7 space-y-6">
+          {currentUser?.role === 'admin' && (
+            <div className="bg-surface border border-border-subtle rounded-xl p-6 shadow-subtle space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 bg-accent/10 text-accent rounded-xl flex items-center justify-center flex-shrink-0">
+                  <Coins size={18} className="flex-shrink-0" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold text-oil-black">
+                    {language === 'en' ? 'Exchange Rate (USD → CDF)' : 'Taux de change (USD → CDF)'}
+                  </h4>
+                  <p className="text-[11px] text-text-secondary">
+                    {language === 'en'
+                      ? 'Set the cooperative display rate used across the app.'
+                      : 'Définissez le taux d\'affichage utilisé dans toute l\'application.'}
+                  </p>
+                </div>
+              </div>
+
+              <form onSubmit={handleSaveExchangeRate} className="space-y-3">
+                <label className="block text-xs font-semibold text-text-secondary">
+                  {language === 'en' ? 'CDF per 1 USD' : 'CDF pour 1 USD'}
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="any"
+                  value={exchangeRateInput}
+                  onChange={(e) => setExchangeRateInput(e.target.value)}
+                  className="w-full h-11 px-4 rounded-xl border border-border-subtle bg-background text-sm font-semibold text-oil-black focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  disabled={exchangeRateSaving}
+                />
+                {state.exchangeRates?.updatedAt && (
+                  <p className="text-[11px] text-text-secondary">
+                    {language === 'en' ? 'Last updated' : 'Dernière mise à jour'}:{' '}
+                    {new Date(state.exchangeRates.updatedAt).toLocaleString()}{' '}
+                    {state.exchangeRates.updatedBy ? `by ${state.exchangeRates.updatedBy}` : ''}
+                  </p>
+                )}
+                {exchangeRateError && <UserNotice message={exchangeRateError} />}
+                {exchangeRateSuccess && (
+                  <p className="text-xs font-semibold text-emerald-700">{exchangeRateSuccess}</p>
+                )}
+                <button
+                  type="submit"
+                  disabled={exchangeRateSaving}
+                  className="h-11 px-5 rounded-xl bg-primary hover:bg-primary-hover text-white text-xs font-bold transition-all disabled:opacity-60"
+                >
+                  {exchangeRateSaving
+                    ? language === 'en'
+                      ? 'Saving...'
+                      : 'Enregistrement...'
+                    : language === 'en'
+                      ? 'Save Rate'
+                      : 'Enregistrer le taux'}
+                </button>
+              </form>
+            </div>
+          )}
+
           {/* Settings Box */}
           <div className="bg-surface border border-border-subtle rounded-xl p-6 shadow-subtle space-y-6">
             
@@ -193,10 +308,10 @@ export default function ProfileSettings({
                 </div>
                 <div>
                   <h4 className="text-sm font-bold text-oil-black">
-                    {language === 'en' ? 'System Language' : 'Ururimi rwa Sisitemu'}
+                    {language === 'en' ? 'System Language' : 'Langue du système'}
                   </h4>
                   <p className="text-[11px] text-text-secondary">
-                    {language === 'en' ? 'Translate app content' : 'Hindura ururimi rwa porogaramu'}
+                    {language === 'en' ? 'Translate app content' : 'Traduire le contenu de l\'application'}
                   </p>
                 </div>
               </div>
@@ -211,12 +326,12 @@ export default function ProfileSettings({
                   English
                 </button>
                 <button
-                  onClick={() => onLanguageChange('rw')}
+                  onClick={() => onLanguageChange('fr')}
                   className={`px-4 py-1.5 text-xs font-bold rounded-full transition-all cursor-pointer ${
-                    language === 'rw' ? 'bg-primary text-white shadow-subtle' : 'text-text-secondary'
+                    language === 'fr' ? 'bg-primary text-white shadow-subtle' : 'text-text-secondary'
                   }`}
                 >
-                  Kinyarwanda
+                  Français
                 </button>
               </div>
             </div>
@@ -231,10 +346,10 @@ export default function ProfileSettings({
                 </div>
                 <div>
                   <h4 className="text-sm font-bold text-oil-black">
-                    {language === 'en' ? 'Dark Mode' : 'Uburyo bwa Nimugoroba'}
+                    {language === 'en' ? 'Dark Mode' : 'Mode sombre'}
                   </h4>
                   <p className="text-[11px] text-text-secondary">
-                    {language === 'en' ? 'Toggle light and dark appearance' : 'Guhindura umukara cyangwa umweru'}
+                    {language === 'en' ? 'Toggle light and dark appearance' : 'Basculer entre l\'apparence claire et sombre'}
                   </p>
                 </div>
               </div>
@@ -262,7 +377,7 @@ export default function ProfileSettings({
               className="w-full h-14 md:h-11 border border-red-200 hover:bg-red-50 text-error font-bold rounded-xl text-xs flex items-center justify-center gap-2 transition-all cursor-pointer"
             >
               <LogOut size={16} className="flex-shrink-0" />
-              <span>{language === 'en' ? 'Sign Out' : 'Sohoka muri Terura'}</span>
+              <span>{language === 'en' ? 'Sign Out' : 'Déconnexion'}</span>
             </button>
           </div>
 
@@ -270,7 +385,7 @@ export default function ProfileSettings({
           <div className="p-4 bg-background border border-border-subtle rounded-xl flex items-center gap-3 justify-center">
             <Heart size={14} className="text-red-500 fill-red-500 animate-pulse flex-shrink-0" />
             <p className="text-[11px] text-text-secondary font-semibold">
-              {language === 'en' ? 'Rooted in Rwandan community savings' : 'Bishingiye ku muco n’amajyambere ya komini mu Rwanda'}
+              {language === 'en' ? 'Rooted in community savings traditions' : "Ancré dans les traditions d'épargne communautaire"}
             </p>
           </div>
         </div>

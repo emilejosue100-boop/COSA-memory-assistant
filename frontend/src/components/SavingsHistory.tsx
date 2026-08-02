@@ -1,5 +1,7 @@
 import React from 'react';
 import { GlobalState, Language } from '../types';
+import { formatCurrency } from '../lib/currency';
+import { useCurrency } from '../hooks/useCurrency';
 import EmptyState from './EmptyState';
 import { ArrowUpRight, ArrowDownRight, TrendingUp, PiggyBank } from 'lucide-react';
 import { buildSavingsTrend, chartPath } from '../lib/chartData';
@@ -11,31 +13,30 @@ interface SavingsHistoryProps {
 
 export default function SavingsHistory({ state, language }: SavingsHistoryProps) {
   const { currentUser, transactions } = state;
+  const { currency, cdfRate } = useCurrency();
 
   const userTransactions = transactions.filter((t) => t.memberName === currentUser?.name);
   const trend = buildSavingsTrend(userTransactions);
   const trendPath = chartPath(trend);
   const trendAreaPath = trendPath ? `${trendPath} L 600 160 L 0 160 Z` : '';
 
-  const formatRwf = (val: number) => {
-    return new Intl.NumberFormat('en-US').format(val) + ' RWF';
-  };
+  const formatAmount = (val: number) => formatCurrency(val, currency, cdfRate);
 
   return (
     <div className="space-y-6 animate-fade-in">
       <div>
         <h2 className="text-xl font-bold font-display text-oil-black tracking-tight">
-          {language === 'en' ? 'Savings History' : 'Amateka yo Kwizigama'}
+          {language === 'en' ? 'Savings History' : 'Historique d\'épargne'}
         </h2>
         <p className="text-xs text-text-secondary">
-          {language === 'en' ? 'Track your contributions and withdrawals' : 'Nshingurano n’ibikorwa byawe mu kigega'}
+          {language === 'en' ? 'Track your contributions and withdrawals' : 'Suivez vos contributions et retraits'}
         </p>
       </div>
 
       <div className="bg-white border border-border-subtle rounded-xl p-6 shadow-subtle">
         <h3 className="text-xs font-bold text-text-secondary uppercase tracking-widest mb-4 flex items-center gap-1.5">
           <TrendingUp size={16} className="text-primary" />
-          {language === 'en' ? 'Savings Trajectory' : 'Emezo ry’ubwiyongere'}
+          {language === 'en' ? 'Savings Trajectory' : 'Trajectoire d\'épargne'}
         </h3>
 
         <div className="h-40 w-full relative pt-2">
@@ -45,9 +46,9 @@ export default function SavingsHistory({ state, language }: SavingsHistoryProps)
               language={language}
               icon={<TrendingUp size={24} />}
               titleEn="Your savings trend will appear here"
-              titleRw="Imiterere y’ubwizigame bwawe izagaragara hano"
-              descriptionEn="Once you start contributing, Terura will chart your progress over time."
-              descriptionRw="Utangiye kuzigama, Terura izerekana iterambere ryawe mu gihe."
+              titleFr="Votre courbe d'épargne apparaîtra ici"
+              descriptionEn="Once you start contributing, Kumbuka will chart your progress over time."
+              descriptionFr="Une fois que vous commencez à épargner, Kumbuka affichera votre progression dans le temps."
             />
           ) : (
             <>
@@ -73,7 +74,7 @@ export default function SavingsHistory({ state, language }: SavingsHistoryProps)
 
       <div className="bg-white border border-border-subtle rounded-xl p-6 shadow-subtle">
         <h3 className="text-sm font-bold font-display text-oil-black mb-4">
-          {language === 'en' ? 'Transaction Ledger' : 'Ibitabo by’imari byawe'}
+          {language === 'en' ? 'Transaction Ledger' : 'Registre des transactions'}
         </h3>
 
         {userTransactions.length === 0 ? (
@@ -82,9 +83,9 @@ export default function SavingsHistory({ state, language }: SavingsHistoryProps)
             language={language}
             icon={<PiggyBank size={24} />}
             titleEn="No transactions yet"
-            titleRw="Nta bikorwa biranditswe"
+            titleFr="Aucune transaction"
             descriptionEn="Your savings contributions and loan repayments will be listed here."
-            descriptionRw="Imisanzu yawe n’kwishyura inguzanyo bizandikwa hano."
+            descriptionFr="Vos contributions d'épargne et remboursements de prêt seront listés ici."
           />
         ) : (
           <div className="divide-y divide-border-subtle/50">
@@ -103,17 +104,17 @@ export default function SavingsHistory({ state, language }: SavingsHistoryProps)
                       {tx.type === 'saved'
                         ? language === 'en'
                           ? 'Savings Contribution'
-                          : 'Umusanzu wo Kwizigama'
+                          : 'Contribution d\'épargne'
                         : tx.type === 'repaid_loan'
                           ? language === 'en'
                             ? 'Loan Repayment'
-                            : 'Kwishyura Inguzanyo'
+                            : 'Remboursement de prêt'
                           : language === 'en'
                             ? 'Withdrawal'
-                            : 'Kuvana mu kigega'}
+                            : 'Retrait'}
                     </p>
                     <p className="text-[11px] text-text-secondary font-medium">
-                      {language === 'en' ? 'Reference' : 'Inomero'}: {tx.id.toUpperCase()} • {tx.date}
+                      {language === 'en' ? 'Reference' : 'Référence'}: {tx.id.toUpperCase()} • {tx.date}
                     </p>
                   </div>
                 </div>
@@ -124,10 +125,10 @@ export default function SavingsHistory({ state, language }: SavingsHistoryProps)
                       tx.type === 'saved' ? 'text-emerald-700' : 'text-oil-black'
                     }`}
                   >
-                    {tx.type === 'saved' ? '+' : '-'} {formatRwf(tx.amount)}
+                    {tx.type === 'saved' ? '+' : '-'} {formatAmount(tx.amount)}
                   </span>
                   <span className="inline-block text-[9px] px-2 py-0.5 bg-emerald-50 text-emerald-700 rounded-full font-bold uppercase tracking-wider">
-                    {language === 'en' ? 'Success' : 'Byemejwe'}
+                    {language === 'en' ? 'Success' : 'Confirmé'}
                   </span>
                 </div>
               </div>
