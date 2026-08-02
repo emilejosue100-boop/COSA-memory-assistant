@@ -66,6 +66,17 @@ app.use('/api', loansRoutes);
 app.use('/api', riskScanRoutes);
 app.use('/api', transcribeRoutes);
 
+function logVoyageKeyStatus(): void {
+  const key = process.env.VOYAGE_API_KEY?.trim();
+  if (!key) {
+    console.warn('[startup] VOYAGE_API_KEY is not set — Memory Assistant embeddings will fail');
+    return;
+  }
+  console.log(
+    `[startup] VOYAGE_API_KEY configured (${key.length} chars, starts with ${key.slice(0, 4)}...)`
+  );
+}
+
 async function start() {
   await connectDB();
   await ensureLoanOutcomeColumns();
@@ -74,6 +85,7 @@ async function start() {
   await ensureDefaultCooperative();
   await ensureDefaultExchangeRate();
   await ensureDemoAccounts();
+  logVoyageKeyStatus();
   app.listen(PORT, () => {
     console.log(`Kumbuka backend running on http://localhost:${PORT}`);
   });

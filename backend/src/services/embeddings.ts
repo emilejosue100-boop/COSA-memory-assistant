@@ -38,7 +38,18 @@ export async function getEmbedding(text: string): Promise<number[]> {
   });
 
   if (!response.ok) {
-    throw new EmbeddingsError(`Voyage AI request failed: ${response.status}`);
+    let detail = '';
+    try {
+      const errBody = (await response.json()) as { detail?: string; error?: string | { message?: string } };
+      detail =
+        errBody.detail ??
+        (typeof errBody.error === 'string' ? errBody.error : errBody.error?.message) ??
+        '';
+    } catch {
+      // ignore non-JSON error bodies
+    }
+    const suffix = detail ? `: ${detail}` : '';
+    throw new EmbeddingsError(`Voyage AI request failed: ${response.status}${suffix}`);
   }
 
   const data = (await response.json()) as VoyageEmbeddingResponse;

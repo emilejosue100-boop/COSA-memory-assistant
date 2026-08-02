@@ -32,3 +32,17 @@ services:
         sync: false
       - key: GEMINI_MODEL
         sync: false
+      - key: VOYAGE_API_KEY
+        sync: false
+      - key: AWS_REGION
+        sync: false
+      - key: AWS_ACCESS_KEY_ID
+        sync: false
+      - key: AWS_SECRET_ACCESS_KEY
+        sync: false
+      - key: BEDROCK_MODEL_ID
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: ENABLE_MCP_TOOL_USE
+        sync: false
