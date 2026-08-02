@@ -122,8 +122,8 @@ router.post('/add-note', requireAdmin, async (req: AuthRequest, res) => {
     });
   } catch (err) {
     if (err instanceof EmbeddingsError) {
-      console.error('add-note Voyage error:', err);
-      res.status(503).json({ error: `Voyage AI unavailable: ${err.message}` });
+      console.error('add-note Cohere error:', err);
+      res.status(503).json({ error: `Cohere embeddings unavailable: ${err.message}` });
       return;
     }
     console.error('add-note error:', err);
@@ -151,7 +151,7 @@ router.post('/payment-update', requireMember, async (req: AuthRequest, res) => {
       return;
     }
 
-    const embedding = padEmbeddingForStorage(await getEmbedding(trimmedMessage));
+    const embedding = padEmbeddingForStorage(await getEmbedding(trimmedMessage, 'document'));
     const vectorLiteral = `'[${embedding.join(',')}]'`;
     const escapedCreatedBy = `member:${memberId}`.replace(/'/g, "''");
     const escapedMessage = trimmedMessage.replace(/'/g, "''");
@@ -181,8 +181,8 @@ router.post('/payment-update', requireMember, async (req: AuthRequest, res) => {
     });
   } catch (err) {
     if (err instanceof EmbeddingsError) {
-      console.error('payment-update Voyage error:', err);
-      res.status(503).json({ error: `Voyage AI unavailable: ${err.message}` });
+      console.error('payment-update Cohere error:', err);
+      res.status(503).json({ error: `Cohere embeddings unavailable: ${err.message}` });
       return;
     }
     console.error('payment-update error:', err);

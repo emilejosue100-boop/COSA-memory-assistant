@@ -54,7 +54,14 @@ app.use(
 app.use(express.json({ limit: '10mb' }));
 
 app.get('/health', (_req, res) => {
-  res.json({ status: 'ok', service: 'kumbuka-backend' });
+  const cohereKey = process.env.COHERE_API_KEY?.trim();
+  res.json({
+    status: 'ok',
+    service: 'kumbuka-backend',
+    cohere: cohereKey
+      ? { configured: true, keyPrefix: `${cohereKey.slice(0, 7)}...`, keyLength: cohereKey.length }
+      : { configured: false },
+  });
 });
 
 app.use('/api', apiRoutes);
@@ -66,14 +73,14 @@ app.use('/api', loansRoutes);
 app.use('/api', riskScanRoutes);
 app.use('/api', transcribeRoutes);
 
-function logVoyageKeyStatus(): void {
-  const key = process.env.VOYAGE_API_KEY?.trim();
+function logCohereKeyStatus(): void {
+  const key = process.env.COHERE_API_KEY?.trim();
   if (!key) {
-    console.warn('[startup] VOYAGE_API_KEY is not set — Memory Assistant embeddings will fail');
+    console.warn('[startup] COHERE_API_KEY is not set — Memory Assistant embeddings will fail');
     return;
   }
   console.log(
-    `[startup] VOYAGE_API_KEY configured (${key.length} chars, starts with ${key.slice(0, 4)}...)`
+    `[startup] COHERE_API_KEY configured (${key.length} chars, starts with ${key.slice(0, 4)}...)`
   );
 }
 
@@ -85,7 +92,7 @@ async function start() {
   await ensureDefaultCooperative();
   await ensureDefaultExchangeRate();
   await ensureDemoAccounts();
-  logVoyageKeyStatus();
+  logCohereKeyStatus();
   app.listen(PORT, () => {
     console.log(`Kumbuka backend running on http://localhost:${PORT}`);
   });

@@ -61,7 +61,7 @@ try {
 
   if (embeddingType && !String(embeddingType).includes('1024') && embeddingType !== 'vector') {
     console.warn(
-      `\nWarning: notes.embedding is ${embeddingType}. Voyage voyage-2 outputs 1024 dims; storage pads to 1536.`
+      `\nWarning: notes.embedding is ${embeddingType}. Cohere embed-english-v3.0 outputs 1024 dims; storage pads to 1536 for legacy column compatibility.`
     );
   }
 } catch (err) {

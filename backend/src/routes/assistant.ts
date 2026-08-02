@@ -106,7 +106,7 @@ router.post('/ask-assistant', requireAdmin, async (req: AuthRequest, res) => {
       return;
     }
 
-    const questionEmbedding = padEmbeddingForStorage(await getEmbedding(trimmedQuestion));
+    const questionEmbedding = padEmbeddingForStorage(await getEmbedding(trimmedQuestion, 'query'));
     const vectorLiteral = `'[${questionEmbedding.join(',')}]'`;
 
     const [relevantNotesResult, paymentUpdatesResult, stats, loans, timelineEvents] =
@@ -222,8 +222,8 @@ router.post('/ask-assistant', requireAdmin, async (req: AuthRequest, res) => {
     });
   } catch (err) {
     if (err instanceof EmbeddingsError) {
-      console.error('ask-assistant Voyage error:', err);
-      res.status(503).json({ error: `Voyage AI unavailable: ${err.message}` });
+      console.error('ask-assistant Cohere error:', err);
+      res.status(503).json({ error: `Cohere embeddings unavailable: ${err.message}` });
       return;
     }
     if (err instanceof BedrockError) {
@@ -251,7 +251,7 @@ router.post('/pattern-search', requireAdmin, async (req: AuthRequest, res) => {
     const trimmedQuestion = question.trim();
     const trimmedExcludeMemberId = excludeMemberId?.trim();
 
-    const questionEmbedding = padEmbeddingForStorage(await getEmbedding(trimmedQuestion));
+    const questionEmbedding = padEmbeddingForStorage(await getEmbedding(trimmedQuestion, 'query'));
     const vectorLiteral = `'[${questionEmbedding.join(',')}]'`;
 
     const excludeSql = trimmedExcludeMemberId
@@ -311,8 +311,8 @@ router.post('/pattern-search', requireAdmin, async (req: AuthRequest, res) => {
     });
   } catch (err) {
     if (err instanceof EmbeddingsError) {
-      console.error('pattern-search Voyage error:', err);
-      res.status(503).json({ error: `Voyage AI unavailable: ${err.message}` });
+      console.error('pattern-search Cohere error:', err);
+      res.status(503).json({ error: `Cohere embeddings unavailable: ${err.message}` });
       return;
     }
     if (err instanceof BedrockError) {

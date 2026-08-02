@@ -5,7 +5,7 @@ export class EmbeddingsError extends Error {
   }
 }
 
-/** Live CockroachDB notes.embedding column is vector(1536); voyage-2 outputs 1024. */
+/** Live DB notes.embedding is VECTOR(1536) (legacy Voyage padding); Cohere outputs 1024 — pad to match. */
 export const STORAGE_EMBEDDING_DIM = 1536;
 
 export function padEmbeddingForStorage(embedding: number[]): number[] {
@@ -18,54 +18,50 @@ export function padEmbeddingForStorage(embedding: number[]): number[] {
   return [...embedding, ...Array(STORAGE_EMBEDDING_DIM - embedding.length).fill(0)];
 }
 
-interface VoyageEmbeddingResponse {
-  data?: Array<{ embedding?: number[] }>;
+interface CohereEmbedResponse {
+  embeddings?: number[][];
 }
 
-export async function getEmbedding(text: string): Promise<number[]> {
-  const apiKey = process.env.VOYAGE_API_KEY?.trim();
+export async function getEmbedding(
+  text: string,
+  mode: 'document' | 'query' = 'document'
+): Promise<number[]> {
+  const apiKey = process.env.COHERE_API_KEY?.trim();
   if (!apiKey) {
-    throw new EmbeddingsError('VOYAGE_API_KEY is not configured');
+    throw new EmbeddingsError('COHERE_API_KEY is not configured');
   }
 
-  const response = await fetch('https://api.voyageai.com/v1/embeddings', {
+  const inputType = mode === 'query' ? 'search_query' : 'search_document';
+
+  const response = await fetch('https://api.cohere.com/v1/embed', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${apiKey}`,
     },
-    body: JSON.stringify({ input: text, model: 'voyage-2' }),
+    body: JSON.stringify({
+      texts: [text],
+      model: 'embed-english-v3.0',
+      input_type: inputType,
+    }),
   });
 
   if (!response.ok) {
     let detail = '';
     try {
-      const errBody = (await response.json()) as { detail?: string; error?: string | { message?: string } };
-      detail =
-        errBody.detail ??
-        (typeof errBody.error === 'string' ? errBody.error : errBody.error?.message) ??
-        '';
+      const errBody = (await response.json()) as { message?: string };
+      detail = errBody.message ?? '';
     } catch {
       // ignore non-JSON error bodies
     }
     const suffix = detail ? `: ${detail}` : '';
-    if (response.status === 401) {
-      throw new EmbeddingsError(
-        `Voyage AI request failed: 401 (invalid API key — check VOYAGE_API_KEY)${suffix}`
-      );
-    }
-    if (response.status === 403) {
-      throw new EmbeddingsError(
-        `Voyage AI request failed: 403 (IP blocked — Voyage often rejects cloud host IPs like Render; works locally but fails in production)${suffix}`
-      );
-    }
-    throw new EmbeddingsError(`Voyage AI request failed: ${response.status}${suffix}`);
+    throw new EmbeddingsError(`Cohere embedding request failed: ${response.status}${suffix}`);
   }
 
-  const data = (await response.json()) as VoyageEmbeddingResponse;
-  const embedding = data.data?.[0]?.embedding;
+  const data = (await response.json()) as CohereEmbedResponse;
+  const embedding = data.embeddings?.[0];
   if (!embedding?.length) {
-    throw new EmbeddingsError('Voyage AI returned no embedding');
+    throw new EmbeddingsError('Cohere returned no embedding');
   }
 
   return embedding;

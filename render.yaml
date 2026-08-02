@@ -32,7 +32,7 @@ services:
         sync: false
       - key: GEMINI_MODEL
         sync: false
-      - key: VOYAGE_API_KEY
+      - key: COHERE_API_KEY
         sync: false
       - key: AWS_REGION
         sync: false

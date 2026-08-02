@@ -25,7 +25,7 @@ export async function saveNote(opts: SaveNoteOptions): Promise<SavedNote> {
   const trimmedMemberId = opts.memberId.trim();
   const trimmedRawText = opts.rawText.trim();
 
-  const embedding = padEmbeddingForStorage(await getEmbedding(trimmedRawText));
+  const embedding = padEmbeddingForStorage(await getEmbedding(trimmedRawText, 'document'));
   const vectorLiteral = `'[${embedding.join(',')}]'`;
   const escapedCreatedBy = opts.createdBy.replace(/'/g, "''");
   const escapedSource = (opts.source?.trim() || 'manual').replace(/'/g, "''");

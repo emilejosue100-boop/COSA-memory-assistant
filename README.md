@@ -91,7 +91,7 @@ Loan officers at cooperatives manage many members and lose track of behavioral h
          │                                               │  (open-ended Q&A, Risk Watch)
          ▼                                               ▼
   ┌─────────────┐                                 ┌───────────────┐
-  │  Voyage AI  │                                 │ Amazon Bedrock│
+  │  Cohere     │                                 │ Amazon Bedrock│
   │  (embed Q)  │                                 │ Claude        │
   └──────┬──────┘                                 └───────┬───────┘
          │                                                 │
@@ -118,7 +118,7 @@ Loan officers at cooperatives manage many members and lose track of behavioral h
 
 **Path (a) — Standard Q&A & pattern search (Memory Assistant):**
 
-1. Officer question → Express API → **Voyage AI** embeds the question.
+1. Officer question → Express API → **Cohere** embeds the question.
 2. **CockroachDB** vector search on `notes.embedding` (`embedding <-> query`) retrieves relevant notes.
 3. Retrieved notes + member context + loans + timeline → **Amazon Bedrock / Claude** → grounded answer + citations.
 4. Q&A persisted to `audit_log`.
@@ -138,7 +138,7 @@ Loan officers at cooperatives manage many members and lose track of behavioral h
 
 ### Distributed vector indexing
 
-Officer and member notes are embedded with **Voyage AI `voyage-2`** (1024 dimensions, padded for storage) and stored in CockroachDB’s native **`VECTOR`** column on `notes.embedding`.
+Officer and member notes are embedded with **Cohere `embed-english-v3.0`** (1024 dimensions) and stored in CockroachDB’s native **`VECTOR(1024)`** column on `notes.embedding`.
 
 Semantic retrieval uses CockroachDB’s distance operator:
 
@@ -176,7 +176,8 @@ During development we evaluated additional AWS services that were **blocked by a
 
 | Evaluated | Blocker | Substitute used |
 |-----------|---------|-----------------|
-| **Amazon Titan Embeddings** | Service activation / billing delay | **Voyage AI** (`voyage-2`) for note embeddings |
+| **Amazon Titan Embeddings** | Service activation / billing delay | **Cohere** (`embed-english-v3.0`) for note embeddings |
+| **Voyage AI** (`voyage-2`) | 403 IP blocked from cloud hosts (Render production) | **Cohere Embed API** for note + question embeddings |
 | **Amazon Transcribe** | `SubscriptionRequiredException` on new account | **Groq Whisper API** (`whisper-large-v3`) for voice question input |
 
 Bedrock + Claude is the core AWS integration and is live in production paths.
@@ -190,7 +191,7 @@ Bedrock + Claude is the core AWS integration and is live in production paths.
 | Frontend | React 19, Vite, Tailwind CSS v4 |
 | Backend | Express, Node 20 |
 | Database | CockroachDB, Drizzle ORM |
-| Embeddings | Voyage AI (`voyage-2`) |
+| Embeddings | Cohere (`embed-english-v3.0`) |
 | LLM | Claude via Amazon Bedrock |
 | Voice transcription | Groq Whisper API |
 | Auth | JWT (bcrypt PIN hashes) |
@@ -204,7 +205,7 @@ Bedrock + Claude is the core AWS integration and is live in production paths.
 
 - Node.js 20+
 - CockroachDB cluster ([CockroachDB Cloud](https://cockroachlabs.cloud/) free tier works)
-- API keys: Voyage AI, Groq, AWS (Bedrock), Gemini (optional — legacy Terura tips/opportunities)
+- API keys: Cohere, Groq, AWS (Bedrock), Gemini (optional — legacy Terura tips/opportunities)
 
 ### 1. Install dependencies
 
@@ -223,7 +224,7 @@ Edit `backend/.env`:
 | Variable | Example / placeholder | Purpose |
 |----------|----------------------|---------|
 | `COCKROACH_DB_URL` | `postgresql://user:pass@host:26257/defaultdb?sslmode=verify-full` | CockroachDB connection string |
-| `VOYAGE_API_KEY` | `pa-...` | Note + question embeddings |
+| `COHERE_API_KEY` | `...` | Note + question embeddings ([dashboard.cohere.com](https://dashboard.cohere.com)) |
 | `AWS_ACCESS_KEY_ID` | `AKIA...` | Bedrock authentication |
 | `AWS_SECRET_ACCESS_KEY` | `...` | Bedrock authentication |
 | `AWS_REGION` | `us-east-1` | Bedrock region (must match enabled models) |
@@ -317,7 +318,7 @@ kumbuka/
 - **Memory consolidation at scale** — no automatic summarization of old notes into durable member profiles yet; retrieval is per-query vector search.
 - **Risk scanning is on-demand** — Cooperative Risk Watch runs when an officer clicks “Run new scan”; scheduled daily cron/Lambda is a natural next step.
 - **RWF removed** — only USD (internal storage) + CDF (display) via admin-managed exchange rate, to keep conversion logic simple.
-- **AWS service gaps** — Titan Embeddings and Transcribe were planned but replaced by Voyage AI and Groq due to account activation delays.
+- **AWS service gaps** — Titan Embeddings and Transcribe were planned but replaced by Cohere and Groq due to account activation delays and production IP restrictions on Voyage AI.
 - **Session memory is ephemeral** — conversation history resets on page refresh (by design for demo privacy).
 
 ---
