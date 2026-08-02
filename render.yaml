@@ -11,8 +11,8 @@ services:
     region: frankfurt
     plan: free
     rootDir: backend
-    # Must use "npm run build" — "npm build" is not a valid npm command
-    buildCommand: npm install && npm run build
+    # Install devDependencies too — tsc and @types/* are required for the TypeScript build
+    buildCommand: cd .. && npm install --include=dev && npm run build --workspace=kumbuka-backend
     startCommand: npm run start
     healthCheckPath: /health
     envVars:
