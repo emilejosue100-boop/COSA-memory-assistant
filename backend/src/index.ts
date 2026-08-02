@@ -19,6 +19,7 @@ import { ensureMemberTimelineView } from './services/timeline.js';
 import { ensureLoanOutcomeColumns, ensureNotesEmbedding768, ensureRiskScanLogTable } from './services/schemaPatches.js';
 import riskScanRoutes from './routes/riskScan.js';
 import transcribeRoutes from './routes/transcribe.js';
+import debugRoutes from './routes/debug.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
@@ -72,6 +73,7 @@ app.use('/api', timelineRoutes);
 app.use('/api', loansRoutes);
 app.use('/api', riskScanRoutes);
 app.use('/api', transcribeRoutes);
+app.use('/api', debugRoutes);
 
 function logGeminiKeyStatus(): void {
   const key = process.env.GEMINI_API_KEY?.trim();
