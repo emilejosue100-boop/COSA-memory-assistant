@@ -46,7 +46,7 @@ export default function WelcomeOnboarding({ language, onComplete }: WelcomeOnboa
 
   return (
     <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6 text-oil-black">
-      <div className="w-full max-w-md bg-white border border-border-subtle rounded-xl p-8 shadow-subtle flex flex-col justify-between min-h-[480px]">
+      <div className="w-full max-w-md bg-surface border border-border-subtle rounded-xl p-8 shadow-subtle flex flex-col justify-between min-h-[480px]">
         <div className="flex justify-between items-center mb-8">
           <div className="flex gap-1.5">
             {steps.map((_, i) => (

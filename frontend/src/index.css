@@ -30,7 +30,112 @@
   --bg-oil-black: #F1F4F2;
   --bg-surface: #19201C;
   --bg-border-subtle: #2C3530;
-  --bg-text-secondary: #9AA59F;
+  /* Brighter than light-mode secondary; tuned for dark bg/surface (≥4.5:1 on #19201C) */
+  --bg-text-secondary: #A8B5AE;
+  --bg-placeholder: #9AA59F;
+  --bg-text-disabled: #7A8A82;
+  --color-error: #F87171;
+  --color-warning: #FBBF24;
+}
+
+/* Placeholders: browsers default to ~54% opacity, which stacks badly with muted colors in dark mode */
+.dark input::placeholder,
+.dark textarea::placeholder {
+  color: var(--bg-placeholder);
+  opacity: 1;
+}
+
+/* Disabled form controls: avoid whole-element opacity (dims text below AA on dark backgrounds) */
+.dark input:disabled,
+.dark textarea:disabled,
+.dark select:disabled {
+  color: var(--bg-text-disabled);
+  opacity: 1;
+  cursor: not-allowed;
+}
+
+/* Semantic/status colors — Tailwind emerald-* & amber-* are too dark on dark surfaces */
+.dark .text-emerald-600,
+.dark .text-emerald-700 {
+  color: #6BCF8E;
+}
+
+.dark .text-emerald-800,
+.dark .text-emerald-900 {
+  color: #7DD3A8;
+}
+
+.dark .text-amber-700,
+.dark .text-amber-800,
+.dark .text-amber-900 {
+  color: #FCD34D;
+}
+
+.dark .text-red-700,
+.dark .text-red-900 {
+  color: #FCA5A5;
+}
+
+.dark .text-gray-500,
+.dark .text-gray-600 {
+  color: var(--bg-text-secondary);
+}
+
+.dark .bg-gray-50 {
+  background-color: color-mix(in srgb, var(--bg-surface) 70%, var(--bg-background));
+}
+
+.dark .bg-gray-100 {
+  background-color: var(--bg-background);
+}
+
+.dark .bg-gray-200 {
+  background-color: var(--bg-border-subtle);
+}
+
+.dark .border-gray-200 {
+  border-color: var(--bg-border-subtle);
+}
+
+.dark .bg-emerald-50 {
+  background-color: color-mix(in srgb, #6BCF8E 14%, var(--bg-surface));
+}
+
+.dark .bg-emerald-100 {
+  background-color: color-mix(in srgb, #6BCF8E 18%, var(--bg-surface));
+}
+
+.dark .bg-amber-100 {
+  background-color: color-mix(in srgb, #FCD34D 16%, var(--bg-surface));
+}
+
+.dark .bg-amber-50,
+.dark .bg-amber-50\/70 {
+  background-color: color-mix(in srgb, #FCD34D 12%, var(--bg-surface));
+}
+
+.dark .bg-red-50,
+.dark .bg-red-50\/50 {
+  background-color: color-mix(in srgb, var(--color-error) 14%, var(--bg-surface));
+}
+
+.dark .border-emerald-100,
+.dark .border-emerald-200 {
+  border-color: color-mix(in srgb, #6BCF8E 35%, var(--bg-border-subtle));
+}
+
+.dark .border-amber-100,
+.dark .border-amber-200 {
+  border-color: color-mix(in srgb, #FCD34D 35%, var(--bg-border-subtle));
+}
+
+.dark .border-red-100,
+.dark .border-red-200 {
+  border-color: color-mix(in srgb, var(--color-error) 35%, var(--bg-border-subtle));
+}
+
+.dark .hover\:bg-red-50:hover {
+  background-color: color-mix(in srgb, var(--color-error) 12%, var(--bg-surface));
 }
 
 body {

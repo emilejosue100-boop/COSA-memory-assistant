@@ -33,7 +33,7 @@ export default function SavingsHistory({ state, language }: SavingsHistoryProps)
         </p>
       </div>
 
-      <div className="bg-white border border-border-subtle rounded-xl p-6 shadow-subtle">
+      <div className="bg-surface border border-border-subtle rounded-xl p-6 shadow-subtle">
         <h3 className="text-xs font-bold text-text-secondary uppercase tracking-widest mb-4 flex items-center gap-1.5">
           <TrendingUp size={16} className="text-primary" />
           {language === 'en' ? 'Savings Trajectory' : 'Trajectoire d\'épargne'}
@@ -72,7 +72,7 @@ export default function SavingsHistory({ state, language }: SavingsHistoryProps)
         </div>
       </div>
 
-      <div className="bg-white border border-border-subtle rounded-xl p-6 shadow-subtle">
+      <div className="bg-surface border border-border-subtle rounded-xl p-6 shadow-subtle">
         <h3 className="text-sm font-bold font-display text-oil-black mb-4">
           {language === 'en' ? 'Transaction Ledger' : 'Registre des transactions'}
         </h3>

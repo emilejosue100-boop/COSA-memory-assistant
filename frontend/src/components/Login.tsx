@@ -358,7 +358,7 @@ export default function Login({
 
 
 
-      <div className="w-full max-w-md bg-white border border-border-subtle rounded-xl p-6 md:p-8 shadow-subtle">
+      <div className="w-full max-w-md bg-surface border border-border-subtle rounded-xl p-6 md:p-8 shadow-subtle">
 
         <div className="flex justify-between items-center mb-6 pb-4 border-b border-border-subtle">
 

@@ -117,7 +117,7 @@ export default function OpportunityFeed({ state, language, onStateChange }: Oppo
         {opportunities.map((opp) => (
           <div 
             key={opp.id} 
-            className="bg-white border border-border-subtle rounded-xl shadow-subtle flex flex-col justify-between overflow-hidden relative"
+            className="bg-surface border border-border-subtle rounded-xl shadow-subtle flex flex-col justify-between overflow-hidden relative"
           >
             <div className="bg-primary/5 border-b border-border-subtle/50 px-5 py-4 flex justify-between items-center">
               <span className="text-[10px] font-bold text-primary uppercase bg-primary/10 px-2.5 py-1 rounded-full">

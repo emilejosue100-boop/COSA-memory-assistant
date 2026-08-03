@@ -33,7 +33,7 @@ export default function MembersList({ state, language }: MembersListProps) {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div className="bg-white border border-border-subtle rounded-xl p-5 shadow-subtle flex items-center gap-4">
+        <div className="bg-surface border border-border-subtle rounded-xl p-5 shadow-subtle flex items-center gap-4">
           <div className="w-10 h-10 bg-primary/10 text-primary rounded-xl flex items-center justify-center">
             <UserCheck size={20} />
           </div>
@@ -47,7 +47,7 @@ export default function MembersList({ state, language }: MembersListProps) {
           </div>
         </div>
 
-        <div className="bg-white border border-border-subtle rounded-xl p-5 shadow-subtle flex items-center gap-4">
+        <div className="bg-surface border border-border-subtle rounded-xl p-5 shadow-subtle flex items-center gap-4">
           <div className="w-10 h-10 bg-accent/10 text-accent rounded-xl flex items-center justify-center">
             <Wallet size={20} className="stroke-[2]" />
           </div>
@@ -62,7 +62,7 @@ export default function MembersList({ state, language }: MembersListProps) {
         </div>
       </div>
 
-      <div className="bg-white border border-border-subtle rounded-xl shadow-subtle overflow-hidden">
+      <div className="bg-surface border border-border-subtle rounded-xl shadow-subtle overflow-hidden">
         <div className="px-6 py-4 border-b border-border-subtle flex items-center justify-between">
           <h3 className="text-sm font-bold font-display text-oil-black">
             {language === 'en' ? 'Active Members Directory' : 'Annuaire des membres actifs'}

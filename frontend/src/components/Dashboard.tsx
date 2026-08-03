@@ -240,7 +240,7 @@ export default function Dashboard({ state, language, onStateChange, onNavigateTo
           <div className="flex flex-col sm:flex-row gap-3 mt-6">
             <button
               onClick={() => setShowSaveModal(true)}
-              className="flex-1 h-14 md:h-12 bg-white text-primary hover:bg-neutral-50 active:scale-[0.98] font-bold rounded-xl text-xs transition-all flex items-center justify-center gap-2 shadow-pressed cursor-pointer"
+              className="flex-1 h-14 md:h-12 bg-surface text-primary hover:bg-neutral-50 active:scale-[0.98] font-bold rounded-xl text-xs transition-all flex items-center justify-center gap-2 shadow-pressed cursor-pointer"
             >
               <Plus size={18} className="flex-shrink-0" />
               <span>{language === 'en' ? 'Save / Kizigama' : 'Épargner'}</span>

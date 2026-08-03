@@ -460,7 +460,7 @@ export default function MemoryAssistant({ state, language }: MemoryAssistantProp
         </p>
       </div>
 
-      <div className="bg-white border border-border-subtle rounded-xl shadow-subtle p-4 space-y-2">
+      <div className="bg-surface border border-border-subtle rounded-xl shadow-subtle p-4 space-y-2">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 bg-primary/10 text-primary rounded-lg flex items-center justify-center">
             <Target size={16} />
@@ -529,7 +529,7 @@ export default function MemoryAssistant({ state, language }: MemoryAssistantProp
           className={`h-10 px-4 rounded-xl text-xs font-bold transition-all ${
             assistantMode === 'member'
               ? 'bg-primary text-white shadow-pressed'
-              : 'bg-white border border-border-subtle text-text-secondary hover:text-oil-black'
+              : 'bg-surface border border-border-subtle text-text-secondary hover:text-oil-black'
           }`}
         >
           {language === 'en' ? 'Member Q&A' : 'Q&R membre'}
@@ -540,7 +540,7 @@ export default function MemoryAssistant({ state, language }: MemoryAssistantProp
           className={`h-10 px-4 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
             assistantMode === 'pattern'
               ? 'bg-primary text-white shadow-pressed'
-              : 'bg-white border border-border-subtle text-text-secondary hover:text-oil-black'
+              : 'bg-surface border border-border-subtle text-text-secondary hover:text-oil-black'
           }`}
         >
           <Search size={14} />
@@ -549,7 +549,7 @@ export default function MemoryAssistant({ state, language }: MemoryAssistantProp
       </div>
 
       {assistantMode === 'pattern' ? (
-        <div className="bg-white border border-border-subtle rounded-xl shadow-subtle flex flex-col">
+        <div className="bg-surface border border-border-subtle rounded-xl shadow-subtle flex flex-col">
           <div className="px-4 py-3 border-b border-border-subtle">
             <h3 className="text-sm font-bold font-display text-oil-black">
               {language === 'en' ? 'Pattern Search' : 'Recherche de tendances'}
@@ -577,7 +577,7 @@ export default function MemoryAssistant({ state, language }: MemoryAssistantProp
                     ? 'e.g. Members who missed payments due to seasonal trade delays...'
                     : 'ex. Membres ayant manqué des paiements à cause de retards commerciaux saisonniers...'
                 }
-                className="flex-1 px-3 py-2 bg-background border border-border-subtle rounded-xl text-sm focus:outline-none focus:border-primary disabled:opacity-50 resize-none"
+                className="flex-1 px-3 py-2 bg-background border border-border-subtle rounded-xl text-sm focus:outline-none focus:border-primary disabled:cursor-not-allowed resize-none"
               />
               <VoiceMicButton
                 voice={patternVoice}

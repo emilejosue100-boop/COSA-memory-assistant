@@ -217,7 +217,7 @@ export const AddNotePanel = memo(function AddNotePanel({
   };
 
   return (
-    <div className="bg-white border border-border-subtle rounded-xl shadow-subtle flex flex-col">
+    <div className="bg-surface border border-border-subtle rounded-xl shadow-subtle flex flex-col">
       <div className="px-4 py-3 border-b border-border-subtle">
         <h3 className="text-sm font-bold font-display text-oil-black">
           {language === 'en' ? 'Add a Note' : 'Ajouter une note'}
@@ -234,7 +234,7 @@ export const AddNotePanel = memo(function AddNotePanel({
               ? 'Enter note text for this member...'
               : 'Saisissez une note pour ce membre...'
           }
-          className="w-full px-3 py-2 bg-background border border-border-subtle rounded-xl text-sm focus:outline-none focus:border-primary disabled:opacity-50 resize-none"
+          className="w-full px-3 py-2 bg-background border border-border-subtle rounded-xl text-sm focus:outline-none focus:border-primary disabled:cursor-not-allowed resize-none"
         />
         <input
           type="text"
@@ -246,7 +246,7 @@ export const AddNotePanel = memo(function AddNotePanel({
               ? 'Tags: #repayment, #collateral'
               : 'Tags : #remboursement, #garantie'
           }
-          className="w-full h-11 px-3 bg-background border border-border-subtle rounded-xl text-sm focus:outline-none focus:border-primary disabled:opacity-50"
+          className="w-full h-11 px-3 bg-background border border-border-subtle rounded-xl text-sm focus:outline-none focus:border-primary disabled:cursor-not-allowed"
         />
         {addNoteError && (
           <p className="text-xs text-red-700 flex items-start gap-2">
@@ -263,7 +263,7 @@ export const AddNotePanel = memo(function AddNotePanel({
           type="button"
           onClick={handleAddNote}
           disabled={!noteText.trim() || addingNote}
-          className="h-11 px-4 bg-primary hover:bg-primary-hover active:scale-[0.98] text-white font-semibold rounded-xl text-xs flex items-center justify-center gap-2 shadow-subtle disabled:opacity-50 disabled:cursor-not-allowed w-full"
+          className="h-11 px-4 bg-primary hover:bg-primary-hover active:scale-[0.98] text-white font-semibold rounded-xl text-xs flex items-center justify-center gap-2 shadow-subtle disabled:opacity-60 disabled:cursor-not-allowed w-full"
         >
           {addingNote ? <Loader2 size={16} className="animate-spin" /> : null}
           {language === 'en' ? 'Add Note' : 'Ajouter la note'}
@@ -331,7 +331,7 @@ export const ConversationPanel = memo(function ConversationPanel({
   };
 
   return (
-    <div className="bg-white border border-border-subtle rounded-xl shadow-subtle flex flex-col min-h-[420px]">
+    <div className="bg-surface border border-border-subtle rounded-xl shadow-subtle flex flex-col min-h-[420px]">
       <div className="px-4 py-3 border-b border-border-subtle">
         <h3 className="text-sm font-bold font-display text-oil-black">
           {language === 'en' ? 'Conversation' : 'Conversation'}
@@ -433,7 +433,7 @@ export const ConversationPanel = memo(function ConversationPanel({
           placeholder={
             language === 'en' ? 'Type your question...' : 'Saisissez votre question...'
           }
-          className="flex-1 h-11 px-3 bg-background border border-border-subtle rounded-xl text-sm focus:outline-none focus:border-primary disabled:opacity-50"
+          className="flex-1 h-11 px-3 bg-background border border-border-subtle rounded-xl text-sm focus:outline-none focus:border-primary disabled:cursor-not-allowed"
         />
         <VoiceMicButton
           voice={memberVoice}
@@ -444,7 +444,7 @@ export const ConversationPanel = memo(function ConversationPanel({
           type="button"
           onClick={() => void handleSend()}
           disabled={!canAsk || memberVoice.isTranscribing}
-          className="h-11 px-4 bg-primary hover:bg-primary-hover active:scale-[0.98] text-white font-semibold rounded-xl text-xs flex items-center justify-center gap-2 shadow-subtle disabled:opacity-50 disabled:cursor-not-allowed"
+          className="h-11 px-4 bg-primary hover:bg-primary-hover active:scale-[0.98] text-white font-semibold rounded-xl text-xs flex items-center justify-center gap-2 shadow-subtle disabled:opacity-60 disabled:cursor-not-allowed"
         >
           {loading ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
           {language === 'en' ? 'Send' : 'Envoyer'}
@@ -587,7 +587,7 @@ export const MemberHistoryPanel = memo(function MemberHistoryPanel({
   };
 
   return (
-    <div className="bg-white border border-border-subtle rounded-xl shadow-subtle flex flex-col min-h-[420px] flex-1">
+    <div className="bg-surface border border-border-subtle rounded-xl shadow-subtle flex flex-col min-h-[420px] flex-1">
       <div className="px-4 py-3 border-b border-border-subtle space-y-3">
         <div>
           <h3 className="text-sm font-bold font-display text-oil-black">
@@ -677,7 +677,7 @@ export const MemberHistoryPanel = memo(function MemberHistoryPanel({
                   id={`note-${note.id}`}
                   className={`bg-background border border-border-subtle rounded-xl p-3 space-y-2 ${
                     note.voided
-                      ? 'opacity-70 bg-gray-50 border-dashed'
+                      ? 'border-dashed bg-surface/80'
                       : memberReported
                         ? 'border-l-2 border-l-accent bg-accent/5'
                         : ''
@@ -689,7 +689,7 @@ export const MemberHistoryPanel = memo(function MemberHistoryPanel({
                     </span>
                     <div className="flex items-center gap-1.5 shrink-0">
                       {note.voided && (
-                        <span className="text-[10px] font-bold text-gray-600 bg-gray-200 px-2 py-0.5 rounded-full">
+                        <span className="text-[10px] font-bold text-text-secondary bg-border-subtle/40 px-2 py-0.5 rounded-full">
                           {language === 'en' ? 'Voided' : 'Annulée'}
                         </span>
                       )}
@@ -709,7 +709,7 @@ export const MemberHistoryPanel = memo(function MemberHistoryPanel({
                     </div>
                   </div>
                   {note.voided && (
-                    <div className="text-[10px] text-gray-600 bg-gray-100 border border-gray-200 rounded-lg px-2.5 py-2 space-y-1">
+                    <div className="text-[10px] text-text-secondary bg-background border border-border-subtle rounded-lg px-2.5 py-2 space-y-1">
                       <p>
                         <span className="font-bold">
                           {language === 'en' ? 'Reason:' : 'Motif :'}
@@ -781,7 +781,7 @@ export const MemberHistoryPanel = memo(function MemberHistoryPanel({
                   )}
                   <p
                     className={`text-xs leading-relaxed ${
-                      note.voided ? 'text-gray-500 line-through' : 'text-oil-black'
+                      note.voided ? 'text-text-secondary line-through' : 'text-oil-black'
                     }`}
                   >
                     {note.rawText}
@@ -801,7 +801,7 @@ export const MemberHistoryPanel = memo(function MemberHistoryPanel({
                             ? 'Reason for voiding (required)...'
                             : 'Motif de l\'annulation (obligatoire)...'
                         }
-                        className="w-full px-3 py-2 bg-background border border-border-subtle rounded-xl text-sm focus:outline-none focus:border-primary disabled:opacity-50 resize-none"
+                        className="w-full px-3 py-2 bg-background border border-border-subtle rounded-xl text-sm focus:outline-none focus:border-primary disabled:cursor-not-allowed resize-none"
                       />
                       <label className="flex items-center gap-2 text-xs text-oil-black cursor-pointer">
                         <input
@@ -823,7 +823,7 @@ export const MemberHistoryPanel = memo(function MemberHistoryPanel({
                               setVoidCorrectMemberPhone(e.target.value || null)
                             }
                             disabled={voidingNote}
-                            className="w-full h-10 px-3 bg-background border border-border-subtle rounded-xl text-sm focus:outline-none focus:border-primary disabled:opacity-50"
+                            className="w-full h-10 px-3 bg-background border border-border-subtle rounded-xl text-sm focus:outline-none focus:border-primary disabled:cursor-not-allowed"
                           >
                             <option value="">
                               {language === 'en' ? 'Select member...' : 'Choisir un membre...'}
@@ -844,7 +844,7 @@ export const MemberHistoryPanel = memo(function MemberHistoryPanel({
                                 ? 'Corrected note text...'
                                 : 'Texte de la note corrigée...'
                             }
-                            className="w-full px-3 py-2 bg-background border border-border-subtle rounded-xl text-sm focus:outline-none focus:border-primary disabled:opacity-50 resize-none"
+                            className="w-full px-3 py-2 bg-background border border-border-subtle rounded-xl text-sm focus:outline-none focus:border-primary disabled:cursor-not-allowed resize-none"
                           />
                           <input
                             type="text"
@@ -856,7 +856,7 @@ export const MemberHistoryPanel = memo(function MemberHistoryPanel({
                                 ? 'Tags: #repayment, #collateral'
                                 : 'Tags : #remboursement, #garantie'
                             }
-                            className="w-full h-10 px-3 bg-background border border-border-subtle rounded-xl text-sm focus:outline-none focus:border-primary disabled:opacity-50"
+                            className="w-full h-10 px-3 bg-background border border-border-subtle rounded-xl text-sm focus:outline-none focus:border-primary disabled:cursor-not-allowed"
                           />
                         </div>
                       )}
@@ -871,7 +871,7 @@ export const MemberHistoryPanel = memo(function MemberHistoryPanel({
                           type="button"
                           onClick={resetVoidForm}
                           disabled={voidingNote}
-                          className="flex-1 h-10 px-3 border border-border-subtle rounded-xl text-xs font-semibold text-text-secondary hover:text-oil-black disabled:opacity-50"
+                          className="flex-1 h-10 px-3 border border-border-subtle rounded-xl text-xs font-semibold text-text-secondary hover:text-oil-black disabled:cursor-not-allowed"
                         >
                           {language === 'en' ? 'Cancel' : 'Annuler'}
                         </button>
@@ -879,7 +879,7 @@ export const MemberHistoryPanel = memo(function MemberHistoryPanel({
                           type="button"
                           onClick={() => void handleVoidNote()}
                           disabled={!voidReason.trim() || voidingNote}
-                          className="flex-1 h-10 px-3 bg-red-700 hover:bg-red-800 text-white font-semibold rounded-xl text-xs flex items-center justify-center gap-2 disabled:opacity-50"
+                          className="flex-1 h-10 px-3 bg-red-700 hover:bg-red-800 text-white font-semibold rounded-xl text-xs flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
                         >
                           {voidingNote ? (
                             <Loader2 size={14} className="animate-spin" />
@@ -988,7 +988,7 @@ export const MemberSidebar = memo(function MemberSidebar({
 }: MemberSidebarProps) {
   return (
     <div className="hidden lg:flex lg:col-span-3 flex-col">
-      <div className="bg-white border border-border-subtle rounded-xl shadow-subtle flex flex-col max-h-[calc(100vh-12rem)]">
+      <div className="bg-surface border border-border-subtle rounded-xl shadow-subtle flex flex-col max-h-[calc(100vh-12rem)]">
         <div className="px-4 py-3 border-b border-border-subtle">
           <h3 className="text-sm font-bold font-display text-oil-black">
             {language === 'en' ? 'Members' : 'Membres'}

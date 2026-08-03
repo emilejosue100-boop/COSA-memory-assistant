@@ -167,7 +167,7 @@ export default function ApprovalsQueue({ state, language, onStateChange }: Appro
               return (
               <div 
                 key={loan.id} 
-                className="bg-white border border-border-subtle rounded-xl p-5 shadow-subtle flex flex-col justify-between"
+                className="bg-surface border border-border-subtle rounded-xl p-5 shadow-subtle flex flex-col justify-between"
               >
                 <div>
                   <div className="flex items-center gap-3 pb-3 border-b border-border-subtle/50 mb-3">
@@ -247,7 +247,7 @@ export default function ApprovalsQueue({ state, language, onStateChange }: Appro
       </div>
 
       {/* Past Decisions Log Section */}
-      <div className="bg-white border border-border-subtle rounded-xl p-6 shadow-subtle">
+      <div className="bg-surface border border-border-subtle rounded-xl p-6 shadow-subtle">
         <h3 className="text-sm font-bold font-display text-oil-black mb-4">
           {language === 'en' ? 'Recent Decisions Log' : 'Journal des décisions récentes'}
         </h3>

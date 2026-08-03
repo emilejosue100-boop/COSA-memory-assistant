@@ -98,7 +98,7 @@ export default function AdminDashboard({ state, language, onStateChange, onNavig
       {/* Stats Bento Row */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Card 1: Total Group Savings */}
-        <div className="bg-white border border-border-subtle rounded-xl p-5 shadow-subtle flex flex-col justify-between">
+        <div className="bg-surface border border-border-subtle rounded-xl p-5 shadow-subtle flex flex-col justify-between">
           <div className="flex justify-between items-start">
             <span className="text-xs font-bold text-text-secondary uppercase tracking-wider">
               {language === 'en' ? 'Total Group Fund' : 'Fonds collectif total'}
@@ -118,7 +118,7 @@ export default function AdminDashboard({ state, language, onStateChange, onNavig
         </div>
 
         {/* Card 2: Active Loans */}
-        <div className="bg-white border border-border-subtle rounded-xl p-5 shadow-subtle flex flex-col justify-between">
+        <div className="bg-surface border border-border-subtle rounded-xl p-5 shadow-subtle flex flex-col justify-between">
           <div className="flex justify-between items-start">
             <span className="text-xs font-bold text-text-secondary uppercase tracking-wider">
               {language === 'en' ? 'Active Loans' : 'Prêts actifs'}
@@ -139,7 +139,7 @@ export default function AdminDashboard({ state, language, onStateChange, onNavig
         </div>
 
         {/* Card 3: Member Count */}
-        <div className="bg-white border border-border-subtle rounded-xl p-5 shadow-subtle flex flex-col justify-between">
+        <div className="bg-surface border border-border-subtle rounded-xl p-5 shadow-subtle flex flex-col justify-between">
           <div className="flex justify-between items-start">
             <span className="text-xs font-bold text-text-secondary uppercase tracking-wider">
               {language === 'en' ? 'Total Members' : 'Membres totaux'}
@@ -171,7 +171,7 @@ export default function AdminDashboard({ state, language, onStateChange, onNavig
 
         {/* Card 4: Pending Approvals */}
         <div className={`border rounded-xl p-5 shadow-subtle flex flex-col justify-between transition-all ${
-          pendingRequests.length > 0 ? 'bg-red-50/50 border-red-200' : 'bg-white border-border-subtle'
+          pendingRequests.length > 0 ? 'bg-red-50/50 border-red-200' : 'bg-surface border-border-subtle'
         }`}>
           <div className="flex justify-between items-start">
             <span className="text-xs font-bold text-text-secondary uppercase tracking-wider">
@@ -209,7 +209,7 @@ export default function AdminDashboard({ state, language, onStateChange, onNavig
       {/* Middle row: Quick Actions & Staging Announcement */}
       <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
         {/* Left Side: SVG Group Savings Curve */}
-        <div className="md:col-span-8 bg-white border border-border-subtle rounded-xl p-6 shadow-subtle">
+        <div className="md:col-span-8 bg-surface border border-border-subtle rounded-xl p-6 shadow-subtle">
           <div className="flex justify-between items-end mb-4 border-b border-border-subtle/50 pb-3">
             <div>
               <h3 className="text-sm font-bold font-display text-oil-black">
@@ -262,7 +262,7 @@ export default function AdminDashboard({ state, language, onStateChange, onNavig
 
         {/* Right Side: Quick Action Panel */}
         <div className="md:col-span-4 space-y-4">
-          <div className="bg-white border border-border-subtle rounded-xl p-5 shadow-subtle">
+          <div className="bg-surface border border-border-subtle rounded-xl p-5 shadow-subtle">
             <h3 className="text-xs font-bold text-oil-black uppercase tracking-widest mb-3">
               {language === 'en' ? 'Quick Actions' : 'Actions rapides'}
             </h3>
@@ -309,7 +309,7 @@ export default function AdminDashboard({ state, language, onStateChange, onNavig
       {/* Add Member Modal */}
       {showAddMemberModal && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-xl max-w-sm w-full p-6 shadow-subtle border border-border-subtle relative">
+          <div className="bg-surface rounded-xl max-w-sm w-full p-6 shadow-subtle border border-border-subtle relative">
             <button
               onClick={() => setShowAddMemberModal(false)}
               className="absolute right-4 top-4 text-text-secondary hover:text-oil-black"

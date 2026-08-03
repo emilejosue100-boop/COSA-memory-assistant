@@ -157,7 +157,7 @@ export default function CooperativeRiskWatch({ language }: CooperativeRiskWatchP
           <Loader2 size={20} className="animate-spin text-primary" />
         </div>
       ) : !latest ? (
-        <div className="bg-white border border-dashed border-border-subtle rounded-xl p-6 text-center">
+        <div className="bg-surface border border-dashed border-border-subtle rounded-xl p-6 text-center">
           <ShieldAlert size={24} className="mx-auto text-accent mb-2" />
           <p className="text-xs text-text-secondary leading-relaxed">
             {language === 'en'
@@ -189,7 +189,7 @@ export default function CooperativeRiskWatch({ language }: CooperativeRiskWatchP
             )}
           </div>
 
-          <div className="bg-white border border-border-subtle rounded-xl p-4 max-h-64 overflow-y-auto">
+          <div className="bg-surface border border-border-subtle rounded-xl p-4 max-h-64 overflow-y-auto">
             <AssistantAnswerText content={latest.scanResult} className="text-xs" />
           </div>
 
