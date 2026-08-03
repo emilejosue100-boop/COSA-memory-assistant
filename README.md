@@ -8,7 +8,7 @@
 
 ## Try It Yourself
 
-A live demo is deployed at: **https://kumbuka.vercel.app**
+A live demo is deployed at: **https://kumbuka-assistant.vercel.app**
 
 **Committee Admin login** (full access: Memory Assistant, Cooperative Risk Watch, approvals, settings)
 
@@ -280,7 +280,7 @@ Log in via the **Committee** tab (admin) or **Sign In** tab (member) using the c
 
 ### Frontend production override
 
-For Vercel deploys, set `BACKEND_URL` to your Render API URL (e.g. `https://kumbuka-api.onrender.com`). See `frontend/.env.example`.
+For Vercel deploys, set `BACKEND_URL=https://kumbuka-api.onrender.com`. See `frontend/.env.example`.
 
 ---
 
