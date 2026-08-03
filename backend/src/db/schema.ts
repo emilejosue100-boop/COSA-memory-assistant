@@ -162,6 +162,11 @@ export const notes = pgTable('notes', {
   complianceFlag: boolean('compliance_flag').notNull().default(false),
   complianceSummary: text('compliance_summary'),
   embedding: vector('embedding', { dimensions: 768 }),
+  voided: boolean('voided').notNull().default(false),
+  voidReason: text('void_reason'),
+  voidedBy: text('voided_by'),
+  voidedAt: timestamp('voided_at', { withTimezone: true }),
+  correctedNoteId: uuid('corrected_note_id'),
 });
 
 export const exchangeRates = pgTable('exchange_rates', {

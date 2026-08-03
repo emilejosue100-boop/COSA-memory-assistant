@@ -70,3 +70,11 @@ export async function saveNote(opts: SaveNoteOptions): Promise<SavedNote> {
 }
 
 export { EmbeddingsError };
+
+/** SQL fragment: active (non-voided) notes only — use in AI-facing and timeline queries. */
+export const ACTIVE_NOTE_SQL_FILTER = 'COALESCE(voided, false) = false';
+
+export function activeNoteFilter(alias?: string): string {
+  if (!alias) return ACTIVE_NOTE_SQL_FILTER;
+  return `COALESCE(${alias}.voided, false) = false`;
+}

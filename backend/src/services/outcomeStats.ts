@@ -72,6 +72,7 @@ export async function getFlagAccuracyStats(): Promise<FlagAccuracyStats> {
         SELECT 1 FROM notes n
         WHERE n.member_id::STRING = lr.member_id::STRING
           AND n.compliance_flag = true
+          AND COALESCE(n.voided, false) = false
       ) THEN 'had_flag' ELSE 'no_flag' END AS flag_status,
       lr.final_outcome,
       COUNT(*) AS count

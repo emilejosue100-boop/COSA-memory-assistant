@@ -16,7 +16,7 @@ import settingsRoutes from './routes/settings.js';
 import timelineRoutes from './routes/timeline.js';
 import loansRoutes from './routes/loans.js';
 import { ensureMemberTimelineView } from './services/timeline.js';
-import { ensureLoanOutcomeColumns, ensureNotesEmbedding768, ensureRiskScanLogTable } from './services/schemaPatches.js';
+import { ensureLoanOutcomeColumns, ensureNoteVoidColumns, ensureNotesEmbedding768, ensureRiskScanLogTable } from './services/schemaPatches.js';
 import riskScanRoutes from './routes/riskScan.js';
 import transcribeRoutes from './routes/transcribe.js';
 import debugRoutes from './routes/debug.js';
@@ -89,6 +89,7 @@ function logGeminiKeyStatus(): void {
 async function start() {
   await connectDB();
   await ensureLoanOutcomeColumns();
+  await ensureNoteVoidColumns();
   await ensureNotesEmbedding768();
   await ensureRiskScanLogTable();
   await ensureMemberTimelineView();

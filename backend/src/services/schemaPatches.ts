@@ -13,6 +13,16 @@ export async function ensureLoanOutcomeColumns(): Promise<void> {
   );
 }
 
+export async function ensureNoteVoidColumns(): Promise<void> {
+  await db.execute(sql.raw(`ALTER TABLE notes ADD COLUMN IF NOT EXISTS voided BOOL DEFAULT false`));
+  await db.execute(sql.raw(`ALTER TABLE notes ADD COLUMN IF NOT EXISTS void_reason STRING`));
+  await db.execute(sql.raw(`ALTER TABLE notes ADD COLUMN IF NOT EXISTS voided_by STRING`));
+  await db.execute(sql.raw(`ALTER TABLE notes ADD COLUMN IF NOT EXISTS voided_at TIMESTAMPTZ`));
+  await db.execute(
+    sql.raw(`ALTER TABLE notes ADD COLUMN IF NOT EXISTS corrected_note_id UUID`)
+  );
+}
+
 async function ensureNotesEmbeddingIndex(): Promise<void> {
   await db.execute(sql.raw(`
     CREATE INDEX IF NOT EXISTS ${NOTES_EMBEDDING_INDEX}

@@ -16,6 +16,7 @@ import {
   AlertTriangle,
   ArrowDownRight,
   ArrowUpRight,
+  Ban,
   Brain,
   Check,
   FileText,
@@ -84,6 +85,11 @@ interface MemberNote {
   tags: string[];
   complianceFlag: boolean;
   complianceSummary: string | null;
+  voided: boolean;
+  voidReason: string | null;
+  voidedBy: string | null;
+  voidedAt: string | null;
+  correctedNoteId: string | null;
 }
 
 type TimelineEventType = 'note' | 'deposit' | 'loan_requested' | 'loan_repaid';
@@ -338,6 +344,14 @@ export default function MemoryAssistant({ state, language }: MemoryAssistantProp
   const [addingNote, setAddingNote] = useState(false);
   const [addNoteSuccess, setAddNoteSuccess] = useState(false);
   const [addNoteError, setAddNoteError] = useState<string | null>(null);
+  const [voidingNoteId, setVoidingNoteId] = useState<string | null>(null);
+  const [voidReason, setVoidReason] = useState('');
+  const [voidCreateCorrection, setVoidCreateCorrection] = useState(false);
+  const [voidCorrectMemberPhone, setVoidCorrectMemberPhone] = useState<string | null>(null);
+  const [voidCorrectText, setVoidCorrectText] = useState('');
+  const [voidCorrectTagsInput, setVoidCorrectTagsInput] = useState('');
+  const [voidingNote, setVoidingNote] = useState(false);
+  const [voidError, setVoidError] = useState<string | null>(null);
   const [assistantMode, setAssistantMode] = useState<AssistantMode>('member');
   const [patternQuestion, setPatternQuestion] = useState('');
   const [excludeSelectedMember, setExcludeSelectedMember] = useState(true);
@@ -351,6 +365,7 @@ export default function MemoryAssistant({ state, language }: MemoryAssistantProp
 
   const selectedMember = users.find((u) => u.phone === selectedMemberPhone) ?? null;
   const selectedMemberId = selectedMemberPhone ? memberIdsByPhone[selectedMemberPhone] : undefined;
+  const memberUsers = users.filter((u) => u.role === 'member');
 
   const memberVoice = useVoiceInput((text) => setInputValue(text), {
     language,
@@ -527,6 +542,7 @@ export default function MemoryAssistant({ state, language }: MemoryAssistantProp
     setNoteTagsInput('');
     setAddNoteError(null);
     setAddNoteSuccess(false);
+    resetVoidForm();
   };
 
   const handleAddNote = async () => {
@@ -567,6 +583,86 @@ export default function MemoryAssistant({ state, language }: MemoryAssistantProp
       );
     } finally {
       setAddingNote(false);
+    }
+  };
+
+  const resetVoidForm = () => {
+    setVoidingNoteId(null);
+    setVoidReason('');
+    setVoidCreateCorrection(false);
+    setVoidCorrectMemberPhone(null);
+    setVoidCorrectText('');
+    setVoidCorrectTagsInput('');
+    setVoidError(null);
+  };
+
+  const openVoidForm = (note: MemberNote) => {
+    setVoidingNoteId(note.id);
+    setVoidReason('');
+    setVoidCreateCorrection(false);
+    setVoidCorrectMemberPhone(selectedMemberPhone);
+    setVoidCorrectText(note.rawText);
+    setVoidCorrectTagsInput(note.tags.join(', '));
+    setVoidError(null);
+  };
+
+  const scrollToNote = (noteId: string) => {
+    const el = document.getElementById(`note-${noteId}`);
+    el?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  };
+
+  const handleVoidNote = async () => {
+    if (!voidingNoteId || !voidReason.trim() || voidingNote) return;
+
+    setVoidingNote(true);
+    setVoidError(null);
+
+    try {
+      const correctMemberId =
+        voidCreateCorrection && voidCorrectMemberPhone
+          ? memberIdsByPhone[voidCorrectMemberPhone]
+          : undefined;
+
+      const payload: Record<string, unknown> = {
+        reason: voidReason.trim(),
+      };
+
+      if (voidCreateCorrection) {
+        const trimmedText = voidCorrectText.trim();
+        if (!correctMemberId || !trimmedText) {
+          throw new Error(
+            language === 'en'
+              ? 'Select a member and enter correction text to create a corrected note.'
+              : 'Sélectionnez un membre et saisissez le texte corrigé.'
+          );
+        }
+        payload.correctMemberId = correctMemberId;
+        payload.correctText = trimmedText;
+        payload.correctTags = parseNoteTags(voidCorrectTagsInput);
+      }
+
+      const { ok, error } = await apiPost(
+        `/api/notes/${encodeURIComponent(voidingNoteId)}/void-and-correct`,
+        payload,
+        true,
+        language
+      );
+      if (!ok) {
+        throw new Error(error ?? 'Failed to void note');
+      }
+
+      resetVoidForm();
+      await refreshMemberHistory();
+    } catch (err) {
+      setVoidError(
+        err instanceof Error
+          ? err.message
+          : language === 'en'
+            ? 'Failed to void note. Please try again.'
+            : 'Impossible d\'annuler la note. Veuillez réessayer.'
+      );
+    } finally {
+      setVoidingNote(false);
     }
   };
 
@@ -1227,21 +1323,80 @@ export default function MemoryAssistant({ state, language }: MemoryAssistantProp
                   memberNotes.map((note) => {
                     const memberReported = isMemberReportedNote(note);
                     const paymentUpdate = isPaymentUpdateNote(note);
+                    const isVoidFormOpen = voidingNoteId === note.id;
+                    const correctedNoteInList =
+                      note.correctedNoteId &&
+                      memberNotes.some((n) => n.id === note.correctedNoteId);
                     return (
                       <div
                         key={note.id}
+                        id={`note-${note.id}`}
                         className={`bg-background border border-border-subtle rounded-xl p-3 space-y-2 ${
-                          memberReported ? 'border-l-2 border-l-accent bg-accent/5' : ''
+                          note.voided
+                            ? 'opacity-70 bg-gray-50 border-dashed'
+                            : memberReported
+                              ? 'border-l-2 border-l-accent bg-accent/5'
+                              : ''
                         }`}
                       >
                         <div className="flex items-start justify-between gap-2">
                           <span className="text-[10px] text-text-secondary font-medium">
                             {formatNoteTimestamp(note.createdAt, language)}
                           </span>
-                          <span className="text-[10px] font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full shrink-0">
-                            {note.id.slice(0, 8)}
-                          </span>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            {note.voided && (
+                              <span className="text-[10px] font-bold text-gray-600 bg-gray-200 px-2 py-0.5 rounded-full">
+                                {language === 'en' ? 'Voided' : 'Annulée'}
+                              </span>
+                            )}
+                            <span className="text-[10px] font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full">
+                              {note.id.slice(0, 8)}
+                            </span>
+                            {!note.voided && (
+                              <button
+                                type="button"
+                                onClick={() => openVoidForm(note)}
+                                title={language === 'en' ? 'Void this note' : 'Annuler cette note'}
+                                className="p-1 rounded-lg text-text-secondary hover:text-red-700 hover:bg-red-50 transition-colors"
+                              >
+                                <Ban size={14} />
+                              </button>
+                            )}
+                          </div>
                         </div>
+                        {note.voided && (
+                          <div className="text-[10px] text-gray-600 bg-gray-100 border border-gray-200 rounded-lg px-2.5 py-2 space-y-1">
+                            <p>
+                              <span className="font-bold">
+                                {language === 'en' ? 'Reason:' : 'Motif :'}
+                              </span>{' '}
+                              {note.voidReason}
+                            </p>
+                            <p>
+                              {language === 'en' ? 'Voided by' : 'Annulée par'}{' '}
+                              {note.voidedBy ?? '—'}
+                              {note.voidedAt
+                                ? ` · ${formatNoteTimestamp(note.voidedAt, language)}`
+                                : ''}
+                            </p>
+                            {note.correctedNoteId && (
+                              <p>
+                                {language === 'en' ? 'Corrected note:' : 'Note corrigée :'}{' '}
+                                {correctedNoteInList ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => scrollToNote(note.correctedNoteId!)}
+                                    className="font-bold text-primary hover:underline"
+                                  >
+                                    {note.correctedNoteId.slice(0, 8)}
+                                  </button>
+                                ) : (
+                                  <span className="font-bold">{note.correctedNoteId.slice(0, 8)}</span>
+                                )}
+                              </p>
+                            )}
+                          </div>
+                        )}
                         <div className="flex flex-wrap items-center gap-1.5">
                           {memberReported ? (
                             <>
@@ -1278,7 +1433,112 @@ export default function MemoryAssistant({ state, language }: MemoryAssistantProp
                             ))}
                           </div>
                         )}
-                        <p className="text-xs text-oil-black leading-relaxed">{note.rawText}</p>
+                        <p className={`text-xs leading-relaxed ${note.voided ? 'text-gray-500 line-through' : 'text-oil-black'}`}>
+                          {note.rawText}
+                        </p>
+                        {isVoidFormOpen && (
+                          <div className="mt-2 pt-3 border-t border-border-subtle space-y-3">
+                            <p className="text-[10px] font-bold uppercase tracking-wider text-oil-black">
+                              {language === 'en' ? 'Void this note' : 'Annuler cette note'}
+                            </p>
+                            <textarea
+                              value={voidReason}
+                              onChange={(e) => setVoidReason(e.target.value)}
+                              disabled={voidingNote}
+                              rows={2}
+                              placeholder={
+                                language === 'en'
+                                  ? 'Reason for voiding (required)...'
+                                  : 'Motif de l\'annulation (obligatoire)...'
+                              }
+                              className="w-full px-3 py-2 bg-background border border-border-subtle rounded-xl text-sm focus:outline-none focus:border-primary disabled:opacity-50 resize-none"
+                            />
+                            <label className="flex items-center gap-2 text-xs text-oil-black cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={voidCreateCorrection}
+                                onChange={(e) => setVoidCreateCorrection(e.target.checked)}
+                                disabled={voidingNote}
+                                className="rounded border-border-subtle"
+                              />
+                              {language === 'en'
+                                ? 'Create corrected note under the right member'
+                                : 'Créer une note corrigée pour le bon membre'}
+                            </label>
+                            {voidCreateCorrection && (
+                              <div className="space-y-2 pl-1 border-l-2 border-primary/30">
+                                <select
+                                  value={voidCorrectMemberPhone ?? ''}
+                                  onChange={(e) => setVoidCorrectMemberPhone(e.target.value || null)}
+                                  disabled={voidingNote}
+                                  className="w-full h-10 px-3 bg-background border border-border-subtle rounded-xl text-sm focus:outline-none focus:border-primary disabled:opacity-50"
+                                >
+                                  <option value="">
+                                    {language === 'en' ? 'Select member...' : 'Choisir un membre...'}
+                                  </option>
+                                  {memberUsers.map((member) => (
+                                    <option key={member.phone} value={member.phone}>
+                                      {member.name}
+                                    </option>
+                                  ))}
+                                </select>
+                                <textarea
+                                  value={voidCorrectText}
+                                  onChange={(e) => setVoidCorrectText(e.target.value)}
+                                  disabled={voidingNote}
+                                  rows={3}
+                                  placeholder={
+                                    language === 'en'
+                                      ? 'Corrected note text...'
+                                      : 'Texte de la note corrigée...'
+                                  }
+                                  className="w-full px-3 py-2 bg-background border border-border-subtle rounded-xl text-sm focus:outline-none focus:border-primary disabled:opacity-50 resize-none"
+                                />
+                                <input
+                                  type="text"
+                                  value={voidCorrectTagsInput}
+                                  onChange={(e) => setVoidCorrectTagsInput(e.target.value)}
+                                  disabled={voidingNote}
+                                  placeholder={
+                                    language === 'en'
+                                      ? 'Tags: #repayment, #collateral'
+                                      : 'Tags : #remboursement, #garantie'
+                                  }
+                                  className="w-full h-10 px-3 bg-background border border-border-subtle rounded-xl text-sm focus:outline-none focus:border-primary disabled:opacity-50"
+                                />
+                              </div>
+                            )}
+                            {voidError && (
+                              <p className="text-xs text-red-700 flex items-start gap-2">
+                                <AlertTriangle size={14} className="shrink-0 mt-0.5" />
+                                {voidError}
+                              </p>
+                            )}
+                            <div className="flex gap-2">
+                              <button
+                                type="button"
+                                onClick={resetVoidForm}
+                                disabled={voidingNote}
+                                className="flex-1 h-10 px-3 border border-border-subtle rounded-xl text-xs font-semibold text-text-secondary hover:text-oil-black disabled:opacity-50"
+                              >
+                                {language === 'en' ? 'Cancel' : 'Annuler'}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={handleVoidNote}
+                                disabled={!voidReason.trim() || voidingNote}
+                                className="flex-1 h-10 px-3 bg-red-700 hover:bg-red-800 text-white font-semibold rounded-xl text-xs flex items-center justify-center gap-2 disabled:opacity-50"
+                              >
+                                {voidingNote ? (
+                                  <Loader2 size={14} className="animate-spin" />
+                                ) : (
+                                  <Ban size={14} />
+                                )}
+                                {language === 'en' ? 'Confirm void' : 'Confirmer l\'annulation'}
+                              </button>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     );
                   })
@@ -1351,8 +1611,8 @@ export default function MemoryAssistant({ state, language }: MemoryAssistantProp
               <Lock size={12} className="shrink-0" />
               <span>
                 {language === 'en'
-                  ? 'Audit log sealed, not editable.'
-                  : 'Journal d\'audit scellé, non modifiable.'}
+                  ? 'Audit trail preserved — notes may be voided with a recorded reason, never deleted.'
+                  : 'Piste d\'audit conservée — les notes peuvent être annulées avec un motif enregistré, jamais supprimées.'}
               </span>
             </div>
           </div>

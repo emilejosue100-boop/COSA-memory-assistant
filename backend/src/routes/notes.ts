@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { eq, sql } from 'drizzle-orm';
 import { db } from '../db/index.js';
-import { members } from '../db/schema.js';
+import { members, notes } from '../db/schema.js';
 import { requireAdmin, requireMember, type AuthRequest } from '../middleware/auth.js';
 import { EmbeddingsError, getEmbedding, padEmbeddingForStorage } from '../services/embeddings.js';
 import { saveNote } from '../services/notes.js';
@@ -17,6 +17,29 @@ interface NoteListRow {
   tags: string[] | null;
   compliance_flag: boolean;
   compliance_summary: string | null;
+  voided: boolean | null;
+  void_reason: string | null;
+  voided_by: string | null;
+  voided_at: Date | string | null;
+  corrected_note_id: string | null;
+}
+
+function mapNoteListRow(row: NoteListRow) {
+  return {
+    id: String(row.id),
+    createdAt: row.created_at,
+    createdBy: row.created_by,
+    source: row.source,
+    rawText: row.raw_text,
+    tags: row.tags ?? [],
+    complianceFlag: row.compliance_flag,
+    complianceSummary: row.compliance_summary,
+    voided: row.voided === true,
+    voidReason: row.void_reason ?? null,
+    voidedBy: row.voided_by ?? null,
+    voidedAt: row.voided_at ?? null,
+    correctedNoteId: row.corrected_note_id ? String(row.corrected_note_id) : null,
+  };
 }
 
 router.get('/notes/:memberId', requireAdmin, async (req: AuthRequest, res) => {
@@ -36,28 +59,120 @@ router.get('/notes/:memberId', requireAdmin, async (req: AuthRequest, res) => {
     }
 
     const result = await db.execute(sql.raw(`
-      SELECT id, created_at, created_by, source, raw_text, tags, compliance_flag, compliance_summary
+      SELECT id, created_at, created_by, source, raw_text, tags, compliance_flag, compliance_summary,
+             voided, void_reason, voided_by, voided_at, corrected_note_id
       FROM notes
-      WHERE member_id = '${memberId}'
+      WHERE member_id = '${memberId.replace(/'/g, "''")}'
       ORDER BY created_at DESC
     `));
 
     const rows = result.rows as unknown as NoteListRow[];
-    res.json(
-      rows.map((row) => ({
-        id: String(row.id),
-        createdAt: row.created_at,
-        createdBy: row.created_by,
-        source: row.source,
-        rawText: row.raw_text,
-        tags: row.tags ?? [],
-        complianceFlag: row.compliance_flag,
-        complianceSummary: row.compliance_summary,
-      }))
-    );
+    res.json(rows.map(mapNoteListRow));
   } catch (err) {
     console.error('GET /api/notes/:memberId error:', err);
     res.status(500).json({ error: 'Failed to fetch notes' });
+  }
+});
+
+router.post('/notes/:noteId/void-and-correct', requireAdmin, async (req: AuthRequest, res) => {
+  try {
+    const noteId = req.params.noteId?.trim();
+    const { reason, correctMemberId, correctText, correctTags } = req.body as {
+      reason?: string;
+      correctMemberId?: string;
+      correctText?: string;
+      correctTags?: string[];
+    };
+
+    if (!noteId) {
+      res.status(400).json({ error: 'noteId is required' });
+      return;
+    }
+
+    const trimmedReason = reason?.trim();
+    if (!trimmedReason) {
+      res.status(400).json({ error: 'A reason is required to void a note' });
+      return;
+    }
+
+    const existing = await db.query.notes.findFirst({
+      where: eq(notes.id, noteId),
+    });
+    if (!existing) {
+      res.status(404).json({ error: 'Note not found' });
+      return;
+    }
+    if (existing.voided) {
+      res.status(409).json({ error: 'Note is already voided' });
+      return;
+    }
+
+    const admin = req.userId
+      ? await db.query.members.findFirst({ where: eq(members.id, req.userId) })
+      : null;
+    const voidedBy = admin?.name ?? 'admin';
+
+    let correctedNoteId: string | null = null;
+    let correctedMemberId: string | null = null;
+
+    const trimmedCorrectText = correctText?.trim();
+    const trimmedCorrectMemberId = correctMemberId?.trim();
+
+    if (trimmedCorrectMemberId && trimmedCorrectText) {
+      const targetMember = await db.query.members.findFirst({
+        where: eq(members.id, trimmedCorrectMemberId),
+      });
+      if (!targetMember) {
+        res.status(404).json({ error: 'Correct member not found' });
+        return;
+      }
+
+      const corrected = await saveNote({
+        memberId: trimmedCorrectMemberId,
+        createdBy: voidedBy,
+        rawText: trimmedCorrectText,
+        tags: correctTags,
+        source: 'manual',
+      });
+      correctedNoteId = corrected.id;
+      correctedMemberId = corrected.memberId;
+    } else if (trimmedCorrectMemberId || trimmedCorrectText) {
+      res.status(400).json({
+        error: 'Both correctMemberId and correctText are required to create a correction',
+      });
+      return;
+    }
+
+    const updateResult = await db.execute(sql`
+      UPDATE notes
+      SET voided = true,
+          void_reason = ${trimmedReason},
+          voided_by = ${voidedBy},
+          voided_at = now(),
+          corrected_note_id = ${correctedNoteId}
+      WHERE id = ${noteId}
+        AND COALESCE(voided, false) = false
+      RETURNING id
+    `);
+
+    if (updateResult.rows.length === 0) {
+      res.status(409).json({ error: 'Note could not be voided' });
+      return;
+    }
+
+    res.json({
+      success: true,
+      correctedNoteId,
+      correctedMemberId,
+    });
+  } catch (err) {
+    if (err instanceof EmbeddingsError) {
+      console.error('void-and-correct Gemini error:', err);
+      res.status(503).json({ error: `Gemini embeddings unavailable: ${err.message}` });
+      return;
+    }
+    console.error('POST /api/notes/:noteId/void-and-correct error:', err);
+    res.status(500).json({ error: 'Failed to void note' });
   }
 });
 

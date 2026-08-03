@@ -87,6 +87,11 @@ const statements = [
   )`,
   `ALTER TABLE loan_requests ADD COLUMN IF NOT EXISTS final_outcome STRING`,
   `ALTER TABLE loan_requests ADD COLUMN IF NOT EXISTS outcome_recorded_at TIMESTAMPTZ`,
+  `ALTER TABLE notes ADD COLUMN IF NOT EXISTS voided BOOL DEFAULT false`,
+  `ALTER TABLE notes ADD COLUMN IF NOT EXISTS void_reason STRING`,
+  `ALTER TABLE notes ADD COLUMN IF NOT EXISTS voided_by STRING`,
+  `ALTER TABLE notes ADD COLUMN IF NOT EXISTS voided_at TIMESTAMPTZ`,
+  `ALTER TABLE notes ADD COLUMN IF NOT EXISTS corrected_note_id UUID`,
   `CREATE TABLE IF NOT EXISTS opportunities (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     external_id STRING NOT NULL UNIQUE,

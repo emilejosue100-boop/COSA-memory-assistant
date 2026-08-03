@@ -34,6 +34,7 @@ SELECT
   tags,
   compliance_flag
 FROM notes
+WHERE COALESCE(voided, false) = false
 
 UNION ALL
 

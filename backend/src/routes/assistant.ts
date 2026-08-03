@@ -14,6 +14,7 @@ import {
   type ConversationTurn,
   type PatternSearchCase,
 } from '../services/bedrock.js';
+import { ACTIVE_NOTE_SQL_FILTER, activeNoteFilter, saveNote } from '../services/notes.js';
 import {
   fetchNamedMemberProfiles,
   getCooperativeAggregateStats,
@@ -133,6 +134,7 @@ router.post('/ask-assistant', requireAdmin, async (req: AuthRequest, res) => {
         WHERE member_id = '${trimmedMemberId}'
           AND embedding IS NOT NULL
           AND source != 'member_payment_update'
+          AND ${ACTIVE_NOTE_SQL_FILTER}
         ORDER BY embedding <-> ${vectorLiteral}::vector
         LIMIT 5
       `)),
@@ -141,6 +143,7 @@ router.post('/ask-assistant', requireAdmin, async (req: AuthRequest, res) => {
         FROM notes
         WHERE member_id = '${trimmedMemberId}'
           AND source = 'member_payment_update'
+          AND ${ACTIVE_NOTE_SQL_FILTER}
         ORDER BY created_at DESC
         LIMIT 5
       `)),
@@ -332,6 +335,7 @@ router.post('/pattern-search', requireAdmin, async (req: AuthRequest, res) => {
       FROM notes n
       JOIN members m ON m.id::text = n.member_id
       WHERE n.embedding IS NOT NULL
+        AND ${activeNoteFilter('n')}
       ${excludeSql}
       ORDER BY n.embedding <-> ${vectorLiteral}::vector
       LIMIT 8

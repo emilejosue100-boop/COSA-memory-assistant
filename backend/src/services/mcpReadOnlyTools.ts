@@ -41,6 +41,7 @@ async function getFlaggedNotes(input: Record<string, unknown>): Promise<string> 
     JOIN members m ON m.id::STRING = n.member_id::STRING
     WHERE n.compliance_flag = true
       AND n.created_at >= now() - INTERVAL '${days} days'
+      AND COALESCE(n.voided, false) = false
     ORDER BY n.created_at DESC
     LIMIT 50
   `));
@@ -60,6 +61,7 @@ async function getBrokenPromiseNotes(input: Record<string, unknown>): Promise<st
          OR lower(tag) LIKE '%broken%promise%'
     )
       AND n.created_at >= now() - INTERVAL '${days} days'
+      AND COALESCE(n.voided, false) = false
     ORDER BY n.created_at DESC
     LIMIT 50
   `));

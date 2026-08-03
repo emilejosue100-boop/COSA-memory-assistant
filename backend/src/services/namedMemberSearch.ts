@@ -92,6 +92,7 @@ async function fetchMemberNotes(memberId: string): Promise<ContextNote[]> {
     FROM notes
     WHERE member_id = ${memberId}
       AND source != 'member_payment_update'
+      AND COALESCE(voided, false) = false
     ORDER BY created_at DESC
   `);
 
@@ -214,6 +215,7 @@ export async function getCooperativeAggregateStats(
       FROM notes
       WHERE compliance_flag = true
         AND member_id != ${excludeMemberId}
+        AND COALESCE(voided, false) = false
     `),
   ]);
 
